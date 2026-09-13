@@ -263,6 +263,31 @@ void main() {
       // Workspace directory should still be created.
       expect(io.dirExists(workspaceFor(_projectName)), isTrue);
     });
+
+    test('syncs command templates into a real .claude/commands/ directory', () async {
+      final io = _emptyIO();
+      final realCmdsDir = p.join(_projectRoot, '.claude', 'commands');
+      // Pre-create .claude as a real directory with a stale legacy command file.
+      io.createDir(realCmdsDir);
+      io.write(p.join(realCmdsDir, 'debug.md'), 'stale content');
+
+      await runLink(
+        [_projectName],
+        io: io,
+        projectRootOverride: _projectRoot,
+        confirmFn: (_) => false,
+        exitFn: _throwExit,
+      );
+
+      // The legacy filename is kept (not deleted) but its content is synced —
+      // not left stale.
+      expect(io.fileExists(p.join(realCmdsDir, 'debug.md')), isTrue);
+      expect(io.read(p.join(realCmdsDir, 'debug.md')), isNot(equals('stale content')));
+
+      // The suffixed filename should now exist with identical content — 1:1.
+      final suffixed = io.read(p.join(realCmdsDir, 'debug-$_projectName.md'));
+      expect(suffixed, equals(io.read(p.join(realCmdsDir, 'debug.md'))));
+    });
   });
 
   group('link — .gitignore edge cases', () {

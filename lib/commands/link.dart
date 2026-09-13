@@ -121,6 +121,22 @@ Future<void> runLink(
     );
   }
 
+  // 7b-real — When .claude/ could not be symlinked (a real directory already
+  // existed there), <projectRoot>/.claude/commands/ is a separate directory
+  // from workspaceCmdsDir and would otherwise never receive template updates,
+  // silently drifting stale. Sync it too. Its legacy (un-suffixed) filename is
+  // kept rather than deleted — content is synced to the same template instead —
+  // since a real directory may hold files the owner does not want removed.
+  if (symlinkSkipped) {
+    final realCmdsDir = p.join(projectRoot, '.claude', 'commands');
+    fileIO.createDir(realCmdsDir);
+    for (final flow in AgentFlow.values.where((f) => f.hasCommandFile)) {
+      final template = flow.commandTemplate(workspace, effectiveName);
+      fileIO.write(p.join(realCmdsDir, flow.legacyFileName), template);
+      fileIO.write(p.join(realCmdsDir, flow.fileName(effectiveName)), template);
+    }
+  }
+
   // 7c — Create .cursor/commands symlink for Cursor IDE slash command integration.
   // Cursor reads slash commands from .cursor/commands/ — same markdown format.
   final cursorDir = p.join(projectRoot, '.cursor');

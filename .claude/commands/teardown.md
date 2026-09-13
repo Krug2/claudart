@@ -1,100 +1,58 @@
-You are **Agent 2 — Teardown** (session close and knowledge promotion).
-
-Closes the session, promotes confirmed learnings to `skills.md`, updates project knowledge, and drives `README.md` to reflect the current truth of the repo.
-
+---
+description: Close session and update knowledge — claudart
 ---
 
-## Step 0 — Resolve session context
+You are running **SESSION TEARDOWN**.
 
-Run:
-```
-claudart status
-```
-Extract `Handoff path` and `Skills path`. Read `<handoff_dir>/scaffold.md` for owner and stack.
+> Preferred: use the Dart CLI — `claudart teardown`
+> Only use this slash command if you want to drive teardown interactively.
 
 ---
 
 ## Step 1 — Confirm resolution
 
-Ask: "Is the bug or feature confirmed complete?"
-- No → "Come back when resolved. Use `/debug` or `/suggest` to continue."
+Ask: "Is the bug confirmed resolved?"
+If no: "Come back when resolved. Use `/debug` or `/suggest` to continue."
 
 ---
 
 ## Step 2 — Read session files
 
-Read:
-- `<handoff path>`
-- `<skills path>`
+Read both:
+- `/Users/aksana.buster/dev/dev_tools/claude/claudart/handoff.md`
+- `/Users/aksana.buster/dev/dev_tools/claude/claudart/skills.md`
 
 ---
 
-## Step 3 — Classify and promote learnings
+## Step 3 — Classify learnings
 
-For each learning in `skills.md ## Pending`:
+For each learning from this session, decide:
+- **Generic** → applies to any Dart/Flutter project → update `/Users/aksana.buster/dev/dev_tools/claude/claudart/knowledge/generic/`
+- **Project-specific** → update `/Users/aksana.buster/dev/dev_tools/claude/claudart/knowledge/projects/<project>.md`
 
-| Type | Action |
-|------|--------|
-| Generic — applies to any project in this stack | Flag for scaffold update. Do NOT write to `README.md` here — tell user: "Run `/setup` to compile this into the scaffold." |
-| Project-specific pattern | Write to `<handoff_dir>/../../knowledge/projects/<project>.md` |
-| Feature-specific invariant or proof | Keep in `skills.md ## Confirmed` with feature tag |
-
-Write only patterns — no session narrative.
+Write only patterns — no session-specific narrative.
 
 ---
 
-## Step 4 — Update README.md (maintainer only)
+## Step 4 — Update knowledge files
 
-Check `workspace.json` → `project.role`.
-
-- `false` → skip this step entirely. This repo is not owned by the workspace owner. README updates are not permitted.
-- `"maintainer"` → proceed.
-
-Read the project's `README.md` (at `<projectRoot>/README.md` from `workspace.json`).
-
-Update only the sections that the completed work touches. Do not rewrite unrelated sections. Map learnings to README structure:
-
-| What changed | README section to update |
-|---|---|
-| New feature added | Feature table / architecture diagram |
-| New enum or type | Enum contracts section |
-| New test coverage | Test model section |
-| New invariant proven | Relevant contract or architecture section |
-| New CLI command or keybind | Usage / commands section |
-| Dependency added | Setup / requirements section |
-
-Write as the workspace owner describing their own work. No mention of sessions, agents, or tools.
+Generic learnings go to the appropriate file in `/Users/aksana.buster/dev/dev_tools/claude/claudart/knowledge/generic/`.
+Project learnings go to `/Users/aksana.buster/dev/dev_tools/claude/claudart/knowledge/projects/<project>.md`.
 
 ---
 
 ## Step 5 — Archive and reset
 
-Run:
-```
-claudart teardown
-```
-This:
-- Archives `<handoff path>` to `<handoff_dir>/archive/`
-- Resets `<handoff path>` to blank template
-- Updates `<skills path>` session index
-
----
-
-## Step 6 — Report
-
-```
-Session closed for <project>.
-Skills promoted  : <n> confirmed, <n> flagged for scaffold
-README updated   : <sections updated>
-Scaffold pending : <yes — run /setup to compile> | <no>
-```
+- Archive handoff to `/Users/aksana.buster/dev/dev_tools/claude/claudart/archive/`
+- Reset `/Users/aksana.buster/dev/dev_tools/claude/claudart/handoff.md` to blank template
+- Update `/Users/aksana.buster/dev/dev_tools/claude/claudart/skills.md` session index
 
 ---
 
 ## Rules
 
 - Never push to remote
-- README updates describe what the repo does — not how the session went
-- Generic patterns stay out of README; they belong in scaffold via `/setup`
+- Generic patterns only in knowledge/ — no session noise
 - Do not delete the archive
-- If README does not exist: create a minimal one from `scaffold.md` structure and project knowledge
+
+$ARGUMENTS
