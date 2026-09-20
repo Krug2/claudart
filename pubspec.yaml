@@ -22,3 +22,6 @@ dev_dependencies:
   mocktail: ^1.0.5
   dartrix:
     path: ../dartrix
+  custom_lint: ^0.8.1
+  claudart_lints:
+    path: tool/claudart_lints

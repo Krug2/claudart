@@ -1,0 +1,12 @@
+name: claudart_lints
+description: Custom analyzer lints enforcing claudart's "no bare strings" rule.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: '>=3.0.0 <5.0.0'
+
+dependencies:
+  analyzer: ^8.1.1
+  analyzer_plugin: ^0.13.7
+  custom_lint_builder: ^0.8.1
