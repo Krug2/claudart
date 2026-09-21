@@ -156,6 +156,10 @@ class EnumValuesLoopInSingleTest extends DartLintRule {
     CustomLintContext context,
   ) {
     context.registry.addMethodInvocation((node) {
+      // target == null: an unqualified call, e.g. `test(...)` from
+      // package:test's top-level function — not `someObject.test(...)`,
+      // an instance method that happens to share the name.
+      if (node.target != null) return;
       if (node.methodName.name != 'test') return;
       final callback = node.argumentList.arguments
           .whereType<FunctionExpression>()
