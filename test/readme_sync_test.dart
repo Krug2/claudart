@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:claudart/commands/claudart_command.dart';
 import 'package:test/test.dart';
 
 /// Verifies README.md stays 1:1 with the codebase.
@@ -25,27 +26,30 @@ void main() {
   });
 
   group('Command routing sync', () {
-    test('every `claudart X` command in the README dispatches in '
-        'bin/claudart.dart', () {
-      final entry = File('bin/claudart.dart').readAsStringSync();
+    // Test registration runs before setUpAll — read the file directly here
+    // rather than relying on the shared `readme` late variable.
+    // Matches "`claudart X`" — single-word sub-commands. Excludes the bare
+    // "`claudart`" launcher and multi-word forms (the base command is still
+    // captured).
+    final readmeCmds = RegExp(r'`claudart (\w[\w-]*)`')
+        .allMatches(File('README.md').readAsStringSync())
+        .map((m) => m.group(1)!)
+        .toSet();
 
-      // Matches "`claudart X`" — single-word sub-commands. Excludes the bare
-      // "`claudart`" launcher and multi-word forms (the base command is still
-      // captured).
-      final readmeCmds = RegExp(r'`claudart (\w[\w-]*)`')
-          .allMatches(readme)
-          .map((m) => m.group(1)!)
-          .toSet();
-
-      for (final cmd in readmeCmds) {
+    for (final cmd in readmeCmds) {
+      test('`claudart $cmd` dispatches (ClaudartCommand or the version '
+          'early-exit)', () {
+        // `version` is handled and exits before dispatch ever runs — not a
+        // ClaudartCommand variant, see claudart_command.dart's own doc.
+        final dispatches = cmd == 'version' || ClaudartCommand.fromString(cmd) != null;
         expect(
-          entry,
-          contains("'$cmd'"),
-          reason: 'Command `$cmd` appears in the README but has no case in '
-              'bin/claudart.dart. Add routing or remove the row.',
+          dispatches,
+          isTrue,
+          reason: 'Command `$cmd` appears in the README but has no '
+              'ClaudartCommand variant. Add it or remove the row.',
         );
-      }
-    });
+      });
+    }
   });
 
   group('File reference sync', () {

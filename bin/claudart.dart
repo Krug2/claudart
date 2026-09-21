@@ -5,6 +5,7 @@ import 'package:claudart/version.dart';
 import 'package:claudart/registry.dart';
 import 'package:claudart/commands/archives.dart';
 import 'package:claudart/commands/chat_shell.dart';
+import 'package:claudart/commands/claudart_command.dart';
 import 'package:claudart/commands/confirm_pending.dart';
 import 'package:claudart/commands/experiment.dart';
 import 'package:claudart/commands/init.dart';
@@ -98,43 +99,50 @@ Future<void> main(List<String> rawArgs) async {
   final command = args.first;
   final rest = args.skip(1).toList();
 
-  switch (command) {
-    case 'chat':
+  final claudartCommand = ClaudartCommand.fromString(command);
+  if (claudartCommand == null) {
+    print('Unknown command: $command\n');
+    print(_usage);
+    exit(1);
+  }
+
+  switch (claudartCommand) {
+    case ClaudartCommand.chat:
       await runChatShell();
-    case 'archives':
+    case ClaudartCommand.archives:
       await runArchives();
-    case 'init':
+    case ClaudartCommand.init:
       await runInit(rest);
-    case 'link':
+    case ClaudartCommand.link:
       await runLink(rest);
-    case 'unlink':
+    case ClaudartCommand.unlink:
       runUnlink();
-    case 'setup':
+    case ClaudartCommand.setup:
       await runSetup(
         projectRootOverride: rest.isNotEmpty ? rest.first : null,
       );
-    case 'status':
+    case ClaudartCommand.status:
       await runStatus(prompt: rest.contains('--prompt'));
-    case 'teardown':
+    case ClaudartCommand.teardown:
       await runTeardown();
-    case 'suggest':
+    case ClaudartCommand.suggest:
       await runSuggest();
-    case 'debug':
+    case ClaudartCommand.debug:
       await runDebug();
-    case 'flow':
+    case ClaudartCommand.flow:
       await runFlow();
-    case 'save':
+    case ClaudartCommand.save:
       await runSave();
-    case 'rotate':
+    case ClaudartCommand.rotate:
       await runRotate();
-    case 'kill':
+    case ClaudartCommand.kill:
       await runKill();
-    case 'confirm-pending':
+    case ClaudartCommand.confirmPending:
       await runConfirmPending(rest);
-    case 'preflight':
+    case ClaudartCommand.preflight:
       final op = rest.isNotEmpty ? rest.first : 'test';
       await runPreflightCmd(op);
-    case 'scan':
+    case ClaudartCommand.scan:
       String? scope;
       final bool full = rest.contains('--full');
       for (var i = 0; i < rest.length; i++) {
@@ -149,29 +157,23 @@ Future<void> main(List<String> rawArgs) async {
           ? Registry.load().findByProjectRoot(scanRoot)?.workspacePath
           : null;
       await runScan(scope: scope, full: full, workspacePath: scanWorkspace);
-    case 'report':
+    case ClaudartCommand.report:
       final fileIssue = rest.contains('--file-issue');
       final reportRoot = detectGitContext()?.root;
       final reportWorkspace = reportRoot != null
           ? Registry.load().findByProjectRoot(reportRoot)?.workspacePath
           : null;
       await runReport(fileIssue: fileIssue, workspacePath: reportWorkspace);
-    case 'map':
+    case ClaudartCommand.map:
       final mapRoot = detectGitContext()?.root;
       final mapWorkspace = mapRoot != null
           ? Registry.load().findByProjectRoot(mapRoot)?.workspacePath
           : null;
       runMap(workspacePath: mapWorkspace);
-    case 'experiment':
+    case ClaudartCommand.experiment:
       await runExperiment(rest);
-    case 'compile':
+    case ClaudartCommand.compile:
       exit(_compile());
-    case 'version':
-      print(claudartVersion);
-    default:
-      print('Unknown command: $command\n');
-      print(_usage);
-      exit(1);
   }
 }
 
