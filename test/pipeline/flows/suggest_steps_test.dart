@@ -50,6 +50,14 @@ void main() {
       // Full analysis present (fallback), not just the extractable subset.
       expect(prompt, contains('<ROOT_CAUSE>rc</ROOT_CAUSE>'));
       expect(prompt, contains('<CONSTRAINTS>c</CONSTRAINTS>'));
+
+      // The output instructions must not forbid the applier from emitting
+      // SCOPE_FILES just because it wasn't in the existing analysis — it's
+      // the very section the change plan targets and _mergeAnalysis() can
+      // append it. A blanket "don't output anything not shown above" would
+      // silently block the one thing this refinement pass needs to add.
+      expect(prompt, isNot(contains('Do not output any section not shown above')));
+      expect(prompt, contains('SCOPE_FILES'));
     });
 
     test('no recognized section names in the change plan → full analysis sent', () {

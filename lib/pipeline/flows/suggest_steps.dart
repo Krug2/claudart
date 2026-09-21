@@ -234,9 +234,23 @@ String _applierPrompt(PipelineContext ctx) {
   // Fall back to the full analysis if any targeted tag failed to extract
   // (e.g. the model forgot to emit it) — silently dropping just that
   // section would ask the applier to update a section it never sees.
-  final sections = targets.isEmpty || extracted.any((s) => s.isEmpty)
+  final missingTarget = targets.isNotEmpty && extracted.any((s) => s.isEmpty);
+  final sections = targets.isEmpty || missingTarget
       ? analysis
       : extracted.join('\n\n');
+
+  // When a targeted section is missing, the plain "don't output anything
+  // not shown above" instruction would forbid the applier from ever
+  // emitting the very section it's supposed to add — _mergeAnalysis()
+  // can append a genuinely new section, but only if the applier is
+  // allowed to output one.
+  final outputConstraint = missingTarget
+      ? 'Output ONLY the sections targeted by the change plan '
+        '(${targets.join(', ')}), using their exact XML tags — including '
+        'any of those tags not shown in the analysis above, since they '
+        'need to be added. Do not output any other section.'
+      : 'Output ONLY the sections listed above using their exact XML tags.\n'
+        'Do not output any section not shown above.';
 
   return '''
 Apply these changes:
@@ -247,8 +261,7 @@ To these sections only:
 
 $sections
 
-Output ONLY the sections listed above using their exact XML tags.
-Do not output any section not shown above.
+$outputConstraint
 No prose outside the tags.
 ''';
 }
