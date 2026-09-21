@@ -189,20 +189,25 @@ const _maxIndexEntries = 300;
 // false — a symlink cycle would otherwise recurse without bound. A single
 // unreadable subdirectory (permissions, a transient FS race) is
 // best-effort: it's skipped, not fatal to the whole walk.
-void _walkDirsSortedBounded(Directory dir, String projectRoot, List<String> out, int limit) {
-  if (out.length >= limit) return;
+// Returns true when the walk stopped because it hit [limit], not because it
+// ran out of directories to visit — the only way a caller can tell "there
+// may be more" from "that's everything," since [out] itself is capped at
+// [limit] either way and can't answer that question on its own.
+bool _walkDirsSortedBounded(Directory dir, String projectRoot, List<String> out, int limit) {
+  if (out.length >= limit) return true;
   List<Directory> children;
   try {
     children = dir.listSync(followLinks: false).whereType<Directory>().toList()
       ..sort((a, b) => a.path.compareTo(b.path));
   } on FileSystemException {
-    return;
+    return false;
   }
   for (final child in children) {
-    if (out.length >= limit) return;
+    if (out.length >= limit) return true;
     out.add(p.relative(child.path, from: projectRoot));
-    _walkDirsSortedBounded(child, projectRoot, out, limit);
+    if (_walkDirsSortedBounded(child, projectRoot, out, limit)) return true;
   }
+  return false;
 }
 
 // Returns a compact snapshot of the project's directory structure and known
@@ -217,19 +222,23 @@ String _projectIndex(String projectRoot) {
   // subtree where that convention is used.
   final scanRoots = ['test', 'lib'];
   final dirs = <String>[];
+  var truncated = false;
   for (final root in scanRoots) {
     final dir = Directory(p.join(projectRoot, root));
     if (!dir.existsSync()) continue;
     dirs.add(root);
-    if (dirs.length >= _maxIndexEntries) break;
-    _walkDirsSortedBounded(dir, projectRoot, dirs, _maxIndexEntries);
+    if (dirs.length >= _maxIndexEntries) {
+      truncated = true;
+      break;
+    }
+    if (_walkDirsSortedBounded(dir, projectRoot, dirs, _maxIndexEntries)) {
+      truncated = true;
+    }
   }
   if (dirs.isNotEmpty) {
-    final truncated = dirs.length > _maxIndexEntries;
-    final shown = truncated ? dirs.take(_maxIndexEntries).toList() : dirs;
     lines
       ..add('Existing directories (use only these as parent paths for new files):')
-      ..addAll(shown.map((d) => '  $d'));
+      ..addAll(dirs.map((d) => '  $d'));
     if (truncated) {
       lines.add('  … stopped after $_maxIndexEntries entries (more exist)');
     }

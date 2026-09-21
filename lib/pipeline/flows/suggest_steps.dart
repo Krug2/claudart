@@ -282,10 +282,15 @@ String _mergeAnalysis(String partial, PipelineContext ctx) {
   for (final tag in _kSections) {
     final updated = _extractSection(partial, tag);
     if (updated.isEmpty) continue;
-    merged = merged.replaceFirst(
-      RegExp('<$tag>[\\s\\S]*?</$tag>'),
-      updated,
-    );
+    final existing = RegExp('<$tag>[\\s\\S]*?</$tag>');
+    // replaceFirst is a no-op when the tag isn't in `merged` at all — the
+    // exact case _applierPrompt's own fallback exists for (analysis
+    // missing a targeted section). If the applier actually emitted that
+    // section, appending it must not be silently dropped just because
+    // there was nothing to replace.
+    merged = existing.hasMatch(merged)
+        ? merged.replaceFirst(existing, updated)
+        : '$merged\n$updated';
   }
   return merged;
 }

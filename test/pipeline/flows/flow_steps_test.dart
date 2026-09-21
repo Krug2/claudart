@@ -103,11 +103,24 @@ void main() {
       final prompt = promptFor(tempRoot.path);
 
       expect(prompt, contains('  lib/ok'));
-    });
+    }, skip: Platform.isWindows ? 'chmod is POSIX-only' : false);
 
     test('neither test/ nor lib/ exists → no directory block emitted', () {
       final prompt = promptFor(tempRoot.path);
       expect(prompt, isNot(contains('Existing directories')));
+    });
+
+    test('scan past the entry cap surfaces a truncation line — the cap only '
+        'bounds what dirs.length can hold, so "truncated" must come from the '
+        'walk itself, not from comparing dirs.length against the cap', () {
+      // 310 directories: past the 300-entry cap the walk stops at.
+      for (var i = 0; i < 310; i++) {
+        Directory('${tempRoot.path}/lib/d$i').createSync(recursive: true);
+      }
+
+      final prompt = promptFor(tempRoot.path);
+
+      expect(prompt, contains('more exist'));
     });
 
     test('lib/src/enums/ with an enum declaration → named in the prompt', () {

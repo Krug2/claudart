@@ -64,4 +64,54 @@ void main() {
       expect(prompt, contains('<CONSTRAINTS>c</CONSTRAINTS>'));
     });
   });
+
+  group('SuggestSteps.applier — postProcess merge (_mergeAnalysis)', () {
+    test('an existing section is replaced in place', () {
+      final ctx = _ctx(
+        reasonerOut: '<ROOT_CAUSE>old</ROOT_CAUSE><CONSTRAINTS>c</CONSTRAINTS>',
+        plannerOut: '',
+      );
+      final merged = SuggestSteps.applier(1).postProcess!(
+        '<ROOT_CAUSE>new</ROOT_CAUSE>',
+        ctx,
+      );
+
+      expect(merged, contains('<ROOT_CAUSE>new</ROOT_CAUSE>'));
+      expect(merged, isNot(contains('old')));
+      expect(merged, contains('<CONSTRAINTS>c</CONSTRAINTS>'));
+    });
+
+    test('a section the applier emits that the base analysis never had is '
+        'appended, not silently dropped — replaceFirst is a no-op when the '
+        'tag is not already present, which is exactly the case '
+        '_applierPrompt\'s own fallback sends the applier the full analysis '
+        'to try to avoid', () {
+      final ctx = _ctx(
+        reasonerOut: '<CONSTRAINTS>c</CONSTRAINTS>', // no ROOT_CAUSE at all
+        plannerOut: '',
+      );
+      final merged = SuggestSteps.applier(1).postProcess!(
+        '<ROOT_CAUSE>now provided</ROOT_CAUSE>',
+        ctx,
+      );
+
+      expect(merged, contains('<CONSTRAINTS>c</CONSTRAINTS>'));
+      expect(merged, contains('<ROOT_CAUSE>now provided</ROOT_CAUSE>'));
+    });
+
+    test('a tag absent from the applier\'s own response leaves that section '
+        'untouched in the base — correct no-op, not a bug', () {
+      final ctx = _ctx(
+        reasonerOut: '<ROOT_CAUSE>rc</ROOT_CAUSE><CONSTRAINTS>c</CONSTRAINTS>',
+        plannerOut: '',
+      );
+      final merged = SuggestSteps.applier(1).postProcess!(
+        '<CONSTRAINTS>updated</CONSTRAINTS>', // no ROOT_CAUSE in the response
+        ctx,
+      );
+
+      expect(merged, contains('<ROOT_CAUSE>rc</ROOT_CAUSE>'));
+      expect(merged, contains('<CONSTRAINTS>updated</CONSTRAINTS>'));
+    });
+  });
 }
