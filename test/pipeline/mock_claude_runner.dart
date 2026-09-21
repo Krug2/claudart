@@ -9,10 +9,12 @@ class CallRecord {
   final AgentModel model;
   final String systemPrompt;
   final String message;
+  final bool bare;
   const CallRecord({
     required this.model,
     required this.systemPrompt,
     required this.message,
+    this.bare = false,
   });
 }
 
@@ -37,6 +39,7 @@ class MockClaudeRunner {
           model:        model,
           systemPrompt: systemPrompt,
           message:      message,
+          bare:         bare,
         ));
         // Find first response whose key appears in the message; fallback to first entry.
         final text = responses.entries
