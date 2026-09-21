@@ -84,7 +84,8 @@ class AgentStep {
   /// `defaultClaudeRunner`'s session-isolation comment in
   /// pipeline_executor.dart), setting this true breaks any step for a user
   /// without `ANTHROPIC_API_KEY` set — not a hypothetical, reproduced
-  /// directly. No step in this codebase currently sets it.
+  /// directly. No built-in pipeline step sets it — only tests exercising
+  /// the mechanism itself (e.g. pipeline_executor_test.dart) do.
   final bool bare;
 
   const AgentStep({

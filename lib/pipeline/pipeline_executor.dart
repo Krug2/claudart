@@ -306,11 +306,13 @@ class PipelineExecutor {
       stdout.write('\x1B[2K\r');
     }
 
-    // Clears the spinner, then renders the typed colored block for a
-    // subagent-lifecycle event. Shared by AgentCompleted/AgentFailed/
-    // AgentEscalating — same rendering, different fields per event.
+    // Renders the typed colored block for a subagent-lifecycle event.
+    // Shared by AgentCompleted/AgentFailed/AgentEscalating — same
+    // rendering, different fields per event. Callers must clearSpinner()
+    // themselves first — this doesn't, so a caller that needs to print
+    // something else (the verbose trace line) between "spinner cleared"
+    // and "block rendered" can do so without a second clear in between.
     void renderSubagentEvent(PipelineEvent event) {
-      clearSpinner();
       final response =
           toResponse(event, speaker: Speaker.subagent, workspace: wsLabel);
       if (response != null) print('${render.render(response)}\n');
@@ -327,6 +329,11 @@ class PipelineExecutor {
           startSpinner(label, displayStep, displayTotal);
 
         case AgentCompleted(:final stepId, :final postProcessRewrote):
+          // clearSpinner first: print() moves the cursor to a new line, so
+          // printing the trace before clearing would leave clearSpinner
+          // erasing that new line instead of the spinner's — an artifact
+          // left behind in the output.
+          clearSpinner();
           if (verbose && postProcessRewrote) {
             print('  ${ansi.dim}◦ postProcess fired on "$stepId" — output rewritten${ansi.reset}');
           }
@@ -334,6 +341,7 @@ class PipelineExecutor {
 
         case AgentFailed():
         case AgentEscalating():
+          clearSpinner();
           renderSubagentEvent(event);
 
         case AgentResumed():
