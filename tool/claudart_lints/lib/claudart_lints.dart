@@ -49,18 +49,18 @@ class BareStringForEnum extends DartLintRule {
     // illegitimate dispatch has at least one case body that *does*
     // something (a call/await), not just returns/assigns a plain value.
     context.registry.addSwitchStatement((node) {
-      final literalCases = node.members.where(_isStringLiteralCase);
+      final literalCases = node.members.where(_isStringLiteralCase).toList();
       if (literalCases.length < 2) return;
-      if (!node.members.any(_isActionCase)) return;
+      if (!literalCases.any(_isActionCase)) return;
       reporter.atNode(node, _code);
     });
 
     // Switch *expressions* (`switch (x) { 'a' => ... }`) are the same
     // dispatch shape and can bypass the statement-only check above.
     context.registry.addSwitchExpression((node) {
-      final literalCases = node.cases.where(_isStringLiteralExpressionCase);
+      final literalCases = node.cases.where(_isStringLiteralExpressionCase).toList();
       if (literalCases.length < 2) return;
-      if (!node.cases.any((c) => _containsAction(c.expression))) return;
+      if (!literalCases.any((c) => _containsAction(c.expression))) return;
       reporter.atNode(node, _code);
     });
   }
