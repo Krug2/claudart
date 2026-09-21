@@ -58,10 +58,12 @@ Future<void> runKill({
     clearLock(workspace, io: fileIO);
   }
 
-  // 4 — Check for an active session (symlink present).
-  final symlinkPath = p.join(projectRoot, '.claude');
-  if (!fileIO.linkExists(symlinkPath)) {
-    print('\n⚠  No active session symlink found for ${entry.name}.');
+  // 4 — Check for an active session. `.claude` is either a symlink (the
+  // normal case) or a real directory when link.dart couldn't symlink it —
+  // both mean a session is linked. Only warn when neither exists.
+  final claudePath = p.join(projectRoot, '.claude');
+  if (!fileIO.linkExists(claudePath) && !fileIO.dirExists(claudePath)) {
+    print('\n⚠  No active session found for ${entry.name}.');
     if (!confirm_('Kill anyway and archive the handoff?')) {
       print('\nKill cancelled.\n');
       exit_(0);
