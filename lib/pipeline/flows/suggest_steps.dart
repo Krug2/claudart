@@ -228,14 +228,15 @@ String _applierPrompt(PipelineContext ctx) {
   final changePlan = ctx[PipelineSlot.planner] != null
       ? _extractChanges(ctx[PipelineSlot.planner]!)
       : '';
-  final analysis  = _latestAnalysis(ctx);
-  final targets   = _parseTargetSections(changePlan);
-  final sections  = targets.isEmpty
+  final analysis   = _latestAnalysis(ctx);
+  final targets    = _parseTargetSections(changePlan);
+  final extracted  = targets.map((t) => _extractSection(analysis, t)).toList();
+  // Fall back to the full analysis if any targeted tag failed to extract
+  // (e.g. the model forgot to emit it) — silently dropping just that
+  // section would ask the applier to update a section it never sees.
+  final sections = targets.isEmpty || extracted.any((s) => s.isEmpty)
       ? analysis
-      : targets
-          .map((t) => _extractSection(analysis, t))
-          .where((s) => s.isNotEmpty)
-          .join('\n\n');
+      : extracted.join('\n\n');
 
   return '''
 Apply these changes:

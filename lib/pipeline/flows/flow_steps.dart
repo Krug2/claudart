@@ -171,6 +171,11 @@ abstract final class FlowSteps {
   static final List<AgentStep> all = [categorize, plan, clarify, construct];
 }
 
+// Caps the directory/enum entries _projectIndex injects into a prompt — a
+// large repo's full test/ + lib/src/ tree could otherwise spike token cost
+// and slow plan/construct for entries past what the model would use anyway.
+const _maxIndexEntries = 300;
+
 // Returns a compact snapshot of the project's directory structure and known
 // enum types. Injected into plan/construct so agents cannot invent paths or
 // types that do not exist in the actual codebase.
@@ -204,9 +209,14 @@ String _projectIndex(String projectRoot) {
   }
   if (dirs.isNotEmpty) {
     dirs.sort();
+    final truncated = dirs.length > _maxIndexEntries;
+    final shown = truncated ? dirs.take(_maxIndexEntries).toList() : dirs;
     lines
       ..add('Existing directories (use only these as parent paths for new files):')
-      ..addAll(dirs.map((d) => '  $d'));
+      ..addAll(shown.map((d) => '  $d'));
+    if (truncated) {
+      lines.add('  … ${dirs.length - _maxIndexEntries} more directories not shown');
+    }
   }
 
   // Enum type inventory. A single unreadable file (permissions, a race with

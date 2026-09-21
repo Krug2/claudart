@@ -9,6 +9,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'package:path/path.dart' as p;
 import '../file_io.dart';
 import '../git_utils.dart';
 import '../logging/planner_log.dart';
@@ -316,7 +317,7 @@ Future<void> _writeHandoff(
   // title) so a flow-generated handoff isn't distinguishable-by-omission
   // from one save/setup would have written — matters when several
   // workspaces' handoffs are open side by side.
-  final projectName  = workspace.split('/').last;
+  final projectName  = p.basename(workspace);
   final header = '# Agent Handoff — $projectName\n\n'
       '> Session started: $date | Branch: $branch\n\n---\n\n';
 
