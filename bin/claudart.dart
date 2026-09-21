@@ -5,6 +5,7 @@ import 'package:claudart/version.dart';
 import 'package:claudart/registry.dart';
 import 'package:claudart/commands/archives.dart';
 import 'package:claudart/commands/chat_shell.dart';
+import 'package:claudart/commands/confirm_pending.dart';
 import 'package:claudart/commands/experiment.dart';
 import 'package:claudart/commands/init.dart';
 import 'package:claudart/commands/kill.dart';
@@ -46,6 +47,9 @@ Commands:
   save                   Checkpoint session: snapshot handoff, deposit confirmed facts to skills
   rotate                 Archive current session, run build gate, seed next handoff from Pending Issues
   kill                   Abandon session: archive handoff, remove symlink (no skills update)
+  confirm-pending --question <q> --on-confirm <cmd>
+                         Set the pending confirmation for this workspace
+  confirm-pending --clear  Clear the pending confirmation
   preflight <op>         Sync check before starting an operation (op: debug | save | test)
   scan [--scope lib|full|handoff] [--full]  Re-scan project for sensitive tokens
   report [--file-issue]  Show diagnostic report; --file-issue files GitHub issues
@@ -125,6 +129,8 @@ Future<void> main(List<String> rawArgs) async {
       await runRotate();
     case 'kill':
       await runKill();
+    case 'confirm-pending':
+      await runConfirmPending(rest);
     case 'preflight':
       final op = rest.isNotEmpty ? rest.first : 'test';
       await runPreflightCmd(op);

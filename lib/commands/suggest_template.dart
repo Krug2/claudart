@@ -1,3 +1,5 @@
+import '../pipeline/agents/confirmation.dart';
+
 String suggestCommandTemplate(String workspacePath, String projectName) => '''
 ---
 description: Explore root cause and write KT — $projectName
@@ -37,7 +39,16 @@ Check the handoff for a `## Project` section and also read:
 Status routing — check `## Status` in the handoff:
 - `needs-suggest`: read **Debug Progress** first — that is your starting point, not a blank slate.
 - `suggest-needed` or `suggest-investigating`: proceed to Step 2.
-- `ready-for-debug` or `debug-in-progress`: confirm with user before re-running suggest.
+- `ready-for-debug` or `debug-in-progress`: ask "This looks ready for `/debug` — re-run `/suggest` and overwrite the existing KT anyway?"
+
+  ${confirmationProtocolInstructions()}
+
+  - `confirm` → proceed to Step 2 (re-explore).
+  - `modify` or `reject` → stop. Tell the user their existing KT is unchanged.
+  - `clarify` → ask a follow-up question. Do not proceed.
+
+  This gate has no single follow-up CLI command — confirming means continuing
+  within this same skill, not dispatching a separate `claudart <verb>`.
 
 ---
 

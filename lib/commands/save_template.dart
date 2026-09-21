@@ -1,3 +1,5 @@
+import '../pipeline/agents/confirmation.dart';
+
 String saveCommandTemplate(String workspacePath, String projectName) =>
     '''---
 description: Checkpoint session — $projectName
@@ -35,10 +37,16 @@ Attempted  : <what was attempted — or "nothing yet">
 Ask: "Does this reflect the current confirmed state? Any corrections before
 saving?"
 
-- If corrections: apply them to `''' +
+''' +
+    confirmationProtocolInstructions() +
+    r'''
+
+- `confirm` → proceed immediately to Step 3.
+- `modify` → apply the correction to `''' +
     workspacePath +
-    r'''/handoff.md` first, then proceed.
-- If confirmed as-is: proceed immediately.
+    r'''/handoff.md` first, then proceed to Step 3.
+- `clarify` → ask a follow-up question. Do not proceed to Step 3.
+- `reject` → stop. Do not run `claudart save`.
 
 ---
 
