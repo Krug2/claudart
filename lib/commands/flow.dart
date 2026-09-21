@@ -60,7 +60,10 @@ Future<void> runFlow({
   final workspace    = entry.workspacePath;
   final wsConfig     = WorkspaceConfig.load(workspace, io: fileIO);
   final strictMode   = wsConfig?.owner.strict ?? false;
-  final resolvedExec = executor ?? PipelineExecutor(strict: strictMode, verbose: true);
+  // verbose defaults to false (no CLI flag plumbs an opt-in/out yet) — an
+  // unconditional true here would put pipeline-internal trace lines in
+  // every user's stdout with no way to silence them.
+  final resolvedExec = executor ?? PipelineExecutor(strict: strictMode);
 
   // ── Check for saved checkpoint ─────────────────────────────────────────────
 
@@ -306,10 +309,15 @@ Future<void> _writeHandoff(
     exit_(1);
   }
 
-  final handoffPath = handoffPathFor(workspace);
-  final branch = detectGitContext()?.branch ?? 'unknown';
-  final date   = DateTime.now().toIso8601String().split('T').first;
-  final header = '# Agent Handoff\n\n'
+  final handoffPath  = handoffPathFor(workspace);
+  final branch       = detectGitContext()?.branch ?? 'unknown';
+  final date         = DateTime.now().toIso8601String().split('T').first;
+  // Matches handoff_template.dart's established format (project name in the
+  // title) so a flow-generated handoff isn't distinguishable-by-omission
+  // from one save/setup would have written — matters when several
+  // workspaces' handoffs are open side by side.
+  final projectName  = workspace.split('/').last;
+  final header = '# Agent Handoff — $projectName\n\n'
       '> Session started: $date | Branch: $branch\n\n---\n\n';
 
   stdout.write('\n  ${ansi.cyan}·${ansi.reset}  Writing handoff…');

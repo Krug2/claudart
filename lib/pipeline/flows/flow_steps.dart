@@ -177,7 +177,11 @@ abstract final class FlowSteps {
 String _projectIndex(String projectRoot) {
   final lines = <String>[];
 
-  // Directory tree for test/ and lib/src/
+  // Directory tree for test/ and lib/src/. followLinks: false — a symlink
+  // cycle under either root would otherwise recurse without bound. Sorted —
+  // Directory.listSync's order is filesystem-dependent, and this text is
+  // injected verbatim into a prompt, so an unsorted list makes the prompt
+  // (and therefore the model's output) nondeterministic across machines.
   final scanRoots = ['test', p.join('lib', 'src')];
   final dirs = <String>[];
   for (final root in scanRoots) {
@@ -185,28 +189,36 @@ String _projectIndex(String projectRoot) {
     if (!dir.existsSync()) continue;
     dirs.add(root);
     dir
-        .listSync(recursive: true)
+        .listSync(recursive: true, followLinks: false)
         .whereType<Directory>()
         .map((d) => p.relative(d.path, from: projectRoot))
         .forEach(dirs.add);
   }
   if (dirs.isNotEmpty) {
+    dirs.sort();
     lines
       ..add('Existing directories (use only these as parent paths for new files):')
       ..addAll(dirs.map((d) => '  $d'));
   }
 
-  // Enum type inventory
+  // Enum type inventory. A single unreadable file (permissions, a race with
+  // a concurrent delete) must not abort the whole prompt-building step —
+  // this index is a best-effort guardrail, not a required input.
   final enumDir = Directory(p.join(projectRoot, 'lib', 'src', 'enums'));
   if (enumDir.existsSync()) {
     final names = <String>[];
-    for (final file in enumDir.listSync().whereType<File>()) {
-      for (final line in file.readAsLinesSync()) {
-        final m = RegExp(r'^enum\s+(\w+)').firstMatch(line);
-        if (m != null) names.add(m.group(1)!);
+    for (final file in enumDir.listSync(followLinks: false).whereType<File>()) {
+      try {
+        for (final line in file.readAsLinesSync()) {
+          final m = RegExp(r'^enum\s+(\w+)').firstMatch(line);
+          if (m != null) names.add(m.group(1)!);
+        }
+      } on FileSystemException {
+        continue;
       }
     }
     if (names.isNotEmpty) {
+      names.sort();
       lines
         ..add('')
         ..add('Known enum types (do not reference types not in this list):')
