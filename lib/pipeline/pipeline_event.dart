@@ -55,7 +55,18 @@ final class AgentCompleted extends PipelineEvent {
   final String stepId;
   final Usage usage;
 
-  const AgentCompleted({required this.stepId, required this.usage});
+  /// True when the step's `postProcess` changed its output. `run()` never
+  /// writes to stdout itself (see this file's own header contract) — this
+  /// flag is how a caller that wants a trace line (e.g. `runFuture`'s
+  /// `verbose` option) knows to print one, without the executor doing IO
+  /// directly inside the generator.
+  final bool postProcessRewrote;
+
+  const AgentCompleted({
+    required this.stepId,
+    required this.usage,
+    this.postProcessRewrote = false,
+  });
 }
 
 /// A pipeline step failed (runner returned null).

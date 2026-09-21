@@ -198,6 +198,16 @@ Token-efficiency comparison — the same task, unstructured chat vs claudart pip
 
 ---
 
+## Authentication
+
+claudart's pipeline steps spawn the real `claude` CLI as a subprocess (`claude --print ...`) and rely on whatever session you're already logged into — the normal `claude login` OAuth flow. Each step gets its own `--session-id` so it doesn't collide with your interactive Claude Code session, but it deliberately does **not** isolate the config directory, because that copies your credential and the copy goes stale as the OAuth token rotates. Isolating by session, not by config, is what keeps a claudart-driven pipeline step authenticated with nothing more than the login you already have.
+
+This is also why claudart's pipeline steps never pass `--bare` to the subprocess. `--bare` is real and useful (`claude --help`: minimal mode, skips hooks/LSP/plugin sync/CLAUDE.md auto-discovery), but it comes with a hard requirement: `--bare` reads **only** `ANTHROPIC_API_KEY` or an `apiKeyHelper` — OAuth and keychain credentials are never read under `--bare`, by design. A normal OAuth-logged-in session gets `Not logged in · Please run /login` if you try it. Since claudart has no opinion on `ANTHROPIC_API_KEY` and expects the ambient OAuth login to just work, no built-in step uses `StepMode.bare` — verified directly against the live CLI, not assumed.
+
+If you ever do run claudart with `ANTHROPIC_API_KEY` set instead of an OAuth login, both paths work — `defaultClaudeRunner` doesn't touch either credential source itself, it only decides `--session-id` and (when a step opts into `StepMode.bare`) `--bare`.
+
+---
+
 ## Workspace structure
 
 <details>

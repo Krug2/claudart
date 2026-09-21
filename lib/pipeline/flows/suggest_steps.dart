@@ -32,7 +32,10 @@ abstract final class SuggestSteps {
 
   static const String _reasonerSystem =
       'You are a precise technical analyst. Answer only what is asked. '
-      'Output only the requested XML sections — no prose outside the tags.';
+      'Output only the requested XML sections — no prose outside the tags. '
+      'Only reference file paths, directory structures, and type names that appear '
+      'explicitly in the findings provided. Do not invent paths, conventions, or '
+      'types from external frameworks or prior knowledge.';
 
   // ── Phase steps (run once per suggest invocation) ───────────────────────────
 
@@ -96,6 +99,7 @@ abstract final class SuggestSteps {
     systemPrompt: _reasonerSystem,
     buildPrompt:  _applierPrompt,
     routes:       const {}, // terminal
+    postProcess:  _mergeAnalysis,
   );
 
   // ── Convenience builders ────────────────────────────────────────────────────
@@ -165,7 +169,7 @@ Constraints on how the fix must be implemented.
 ''';
 
 String _plannerPrompt(PipelineContext ctx) {
-  final analysis      = ctx.reasonerOut;
+  final analysis      = _latestAnalysis(ctx);
   final feedback      = ctx[PipelineSlot.userFeedback] ?? '';
   final clarification = ctx.clarification;
   final planContext   = clarification != null
@@ -224,21 +228,84 @@ String _applierPrompt(PipelineContext ctx) {
   final changePlan = ctx[PipelineSlot.planner] != null
       ? _extractChanges(ctx[PipelineSlot.planner]!)
       : '';
-  final analysis = ctx.reasonerOut;
+  final analysis   = _latestAnalysis(ctx);
+  final targets    = _parseTargetSections(changePlan);
+  final extracted  = targets.map((t) => _extractSection(analysis, t)).toList();
+  // Fall back to the full analysis if any targeted tag failed to extract
+  // (e.g. the model forgot to emit it) — silently dropping just that
+  // section would ask the applier to update a section it never sees.
+  final missingTarget = targets.isNotEmpty && extracted.any((s) => s.isEmpty);
+  final sections = targets.isEmpty || missingTarget
+      ? analysis
+      : extracted.join('\n\n');
+
+  // When a targeted section is missing, the plain "don't output anything
+  // not shown above" instruction would forbid the applier from ever
+  // emitting the very section it's supposed to add — _mergeAnalysis()
+  // can append a genuinely new section, but only if the applier is
+  // allowed to output one.
+  final outputConstraint = missingTarget
+      ? 'Output ONLY the sections targeted by the change plan '
+        '(${targets.join(', ')}), using their exact XML tags — including '
+        'any of those tags not shown in the analysis above, since they '
+        'need to be added. Do not output any other section.'
+      : 'Output ONLY the sections listed above using their exact XML tags.\n'
+        'Do not output any section not shown above.';
 
   return '''
-Apply these changes to the analysis:
+Apply these changes:
 
 $changePlan
 
-Existing analysis:
-$analysis
+To these sections only:
 
-Output all six XML sections. Only modify what the change plan specifies.
-All other section content must be copied verbatim.
-Tags: ROOT_CAUSE, SCOPE_FILES, SCOPE_ENTRIES, SCOPE_CLASSES, MUST_NOT_TOUCH, CONSTRAINTS.
+$sections
+
+$outputConstraint
 No prose outside the tags.
 ''';
+}
+
+// ── Applier helpers ───────────────────────────────────────────────────────────
+
+const _kSections = {
+  'ROOT_CAUSE', 'SCOPE_FILES', 'SCOPE_ENTRIES',
+  'SCOPE_CLASSES', 'MUST_NOT_TOUCH', 'CONSTRAINTS',
+};
+
+// Returns the latest full analysis: applier output supersedes reasoner output.
+String _latestAnalysis(PipelineContext ctx) =>
+    ctx.applierOut.isNotEmpty ? ctx.applierOut : ctx.reasonerOut;
+
+// Identifies which sections the change plan targets by scanning for tag names.
+Set<String> _parseTargetSections(String changePlan) =>
+    _kSections.where((s) => changePlan.contains(s)).toSet();
+
+// Extracts a single <TAG>...</TAG> block from an XML document.
+String _extractSection(String xml, String tag) {
+  final m = RegExp('<$tag>([\\s\\S]*?)</$tag>').firstMatch(xml);
+  return m != null ? '<$tag>${m.group(1)}</$tag>' : '';
+}
+
+// Merges the applier's partial output (changed sections only) back into the
+// full analysis document. Called as AgentStep.postProcess so the context slot
+// always holds a complete document, not a partial one.
+String _mergeAnalysis(String partial, PipelineContext ctx) {
+  var merged = _latestAnalysis(ctx);
+  for (final tag in _kSections) {
+    final updated = _extractSection(partial, tag);
+    if (updated.isEmpty) continue;
+    final existing = RegExp('<$tag>[\\s\\S]*?</$tag>');
+    // replaceFirst is a no-op when the tag isn't in `merged` at all — the
+    // exact case _applierPrompt's own fallback exists for (analysis
+    // missing a targeted section). If the applier actually emitted that
+    // section, appending it must not be silently dropped just because
+    // there was nothing to replace.
+    merged = existing.hasMatch(merged)
+        ? merged.replaceFirst(existing, updated)
+        : '$merged\n$updated';
+  }
+  return merged;
 }
 
 String _extractChanges(String plannerOutput) {

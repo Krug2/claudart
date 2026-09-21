@@ -29,6 +29,7 @@ import 'event_response_map.dart';
 import 'pipeline_context.dart';
 import 'pipeline_event.dart';
 import 'route_tag.dart';
+import 'step_mode.dart';
 import 'step_route.dart';
 import 'usage.dart';
 import 'xml_tags.dart';
@@ -40,6 +41,7 @@ typedef ClaudeRunner = Future<({String text, Usage usage})?> Function({
   required String systemPrompt,
   required String message,
   required String workingDir,
+  StepMode mode,
 });
 
 typedef UserPrompter     = Future<String> Function(String question);
@@ -56,11 +58,20 @@ class PipelineExecutor {
   /// escalates to the user instead of silently falling through.
   final bool strict;
 
+  /// When true, [runFuture] prints a dim trace line for pipeline-internal
+  /// events not otherwise visible to the user (e.g. a postProcess rewrite).
+  /// [run] itself never does this IO — see this file's header: direct
+  /// `run()` subscribers (e.g. zedup's UI) get no stdout side-effects
+  /// regardless of this flag. It only reaches [AgentCompleted.postProcessRewrote],
+  /// which [runFuture] reads to decide whether to print.
+  final bool verbose;
+
   PipelineExecutor({
     ClaudeRunner?     runner,
     UserPrompter?     prompter,
     ApprovalSelector? approvalSelector,
-    this.strict = false,
+    this.strict  = false,
+    this.verbose = false,
   })  : _runner           = runner           ?? defaultClaudeRunner,
         _prompter         = prompter         ?? _defaultPrompter,
         _approvalSelector = approvalSelector ?? _defaultApprovalSelector;
@@ -110,6 +121,7 @@ class PipelineExecutor {
         systemPrompt: current.systemPrompt,
         message:      current.buildPrompt(ctx),
         workingDir:   ctx.projectRoot,
+        mode:         current.mode,
       );
 
       if (result == null) {
@@ -118,19 +130,25 @@ class PipelineExecutor {
         return;
       }
 
+      final rawText = result.text;
+      final stored = current.postProcess != null
+          ? current.postProcess!(rawText, ctx)
+          : rawText;
+      final rewrote = current.postProcess != null && stored != rawText;
       ctx = ctx
           .withUsage(ctx.usage + result.usage)
-          .withSlot(current.id, result.text);
+          .withSlot(current.id, stored);
 
-      yield AgentCompleted(stepId: current.id, usage: result.usage);
+      yield AgentCompleted(stepId: current.id, usage: result.usage, postProcessRewrote: rewrote);
 
       // Find first matching tag → route. `matchedTag` is typed
       // [RouteTag] so downstream extractions read `.wireTag` once and
-      // pass the wire string to `tagOrNull`.
+      // pass the wire string to `tagOrNull`. Uses `stored` (post-processed
+      // text) so postProcess can inject tags to correct malformed output.
       RouteTag?  matchedTag;
       StepRoute? route;
       for (final entry in current.routes.entries) {
-        if (tagOrNull(result.text, entry.key.wireTag) != null) {
+        if (tagOrNull(stored, entry.key.wireTag) != null) {
           matchedTag = entry.key;
           route      = entry.value;
           break;
@@ -170,17 +188,17 @@ class PipelineExecutor {
           current = stepMap[stepId]!;
 
         case QuestionBranch(:final lookupStepId):
-          final question = tagOrNull(result.text, matchedTag!.wireTag)!;
+          final question = tagOrNull(stored, matchedTag!.wireTag)!;
           ctx     = ctx.withSlot(PipelineSlot.question, question);
           current = stepMap[lookupStepId]!;
 
         case FeedBackTo(:final stepId):
-          final answer = tagOrNull(result.text, matchedTag!.wireTag)!;
+          final answer = tagOrNull(stored, matchedTag!.wireTag)!;
           ctx     = ctx.appendClarification('Codebase lookup: $answer');
           current = stepMap[stepId]!;
 
         case EscalateUser(:final returnToStepId):
-          final unknown  = tagOrNull(result.text, matchedTag!.wireTag);
+          final unknown  = tagOrNull(stored, matchedTag!.wireTag);
           final question = ctx[PipelineSlot.question] ?? '';
           yield AgentEscalating(
             question:       question,
@@ -195,7 +213,7 @@ class PipelineExecutor {
 
         case ApprovalGate(:final planTag, :final nextStepId):
           final plan =
-              tagOrNull(result.text, planTag.wireTag) ?? result.text;
+              tagOrNull(stored, planTag.wireTag) ?? stored;
           yield PlanDraft(plan: plan);
           yield const AwaitingApproval();
 
@@ -289,6 +307,18 @@ class PipelineExecutor {
       stdout.write('\x1B[2K\r');
     }
 
+    // Renders the typed colored block for a subagent-lifecycle event.
+    // Shared by AgentCompleted/AgentFailed/AgentEscalating — same
+    // rendering, different fields per event. Callers must clearSpinner()
+    // themselves first — this doesn't, so a caller that needs to print
+    // something else (the verbose trace line) between "spinner cleared"
+    // and "block rendered" can do so without a second clear in between.
+    void renderSubagentEvent(PipelineEvent event) {
+      final response =
+          toResponse(event, speaker: Speaker.subagent, workspace: wsLabel);
+      if (response != null) print('${render.render(response)}\n');
+    }
+
     await for (final event in run(
       steps:        steps,
       ctx:          ctx,
@@ -299,14 +329,21 @@ class PipelineExecutor {
         case AgentStarted(:final label, :final displayStep, :final displayTotal):
           startSpinner(label, displayStep, displayTotal);
 
-        case AgentCompleted():
+        case AgentCompleted(:final stepId, :final postProcessRewrote):
+          // clearSpinner first: print() moves the cursor to a new line, so
+          // printing the trace before clearing would leave clearSpinner
+          // erasing that new line instead of the spinner's — an artifact
+          // left behind in the output.
+          clearSpinner();
+          if (verbose && postProcessRewrote) {
+            print('  ${ansi.dim}◦ postProcess fired on "$stepId" — output rewritten${ansi.reset}');
+          }
+          renderSubagentEvent(event);
+
         case AgentFailed():
         case AgentEscalating():
-          // Clear the spinner line, then render the typed colored block.
           clearSpinner();
-          final response =
-              toResponse(event, speaker: Speaker.subagent, workspace: wsLabel);
-          if (response != null) print('${render.render(response)}\n');
+          renderSubagentEvent(event);
 
         case AgentResumed():
           break; // Next AgentStarted restarts the spinner.
@@ -363,6 +400,7 @@ Future<({String text, Usage usage})?> defaultClaudeRunner({
   required String systemPrompt,
   required String message,
   required String workingDir,
+  StepMode mode = StepMode.project,
 }) async {
   // `StepDebugTrace.start()` resolves the log file via `debugLogFile()`.
   // When debug mode is off, every `trace.write*` below is a no-op.
@@ -392,6 +430,7 @@ Future<({String text, Usage usage})?> defaultClaudeRunner({
         '--model',         model.alias,
         '--system-prompt', systemPrompt,
         '--dangerously-skip-permissions',
+        if (mode == StepMode.bare) '--bare',
       ],
       workingDirectory: workingDir,
     );

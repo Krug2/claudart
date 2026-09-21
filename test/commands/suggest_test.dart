@@ -3,6 +3,7 @@ import 'package:claudart/commands/suggest.dart';
 import 'package:claudart/registry.dart';
 import 'package:claudart/paths.dart';
 import 'package:claudart/pipeline/pipeline_executor.dart';
+import 'package:claudart/pipeline/step_mode.dart';
 import '../helpers/mocks.dart';
 
 // suggest_test.dart — validation-path coverage for runSuggest.
@@ -85,7 +86,7 @@ MemoryFileIO _io({String? handoff = _handoffWithScope}) {
 /// producing nothing (e.g. claude CLI not installed/authenticated),
 /// without ever reaching the interactive review loop.
 PipelineExecutor _executorWithNoOutput() =>
-    PipelineExecutor(runner: ({required model, required systemPrompt, required message, required workingDir}) async => null);
+    PipelineExecutor(runner: ({required model, required systemPrompt, required message, required workingDir, StepMode mode = StepMode.project}) async => null);
 
 void main() {
   group('runSuggest — validation', () {
