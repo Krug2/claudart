@@ -27,5 +27,6 @@ export 'pipeline/xml_tags.dart';
 export 'session/archive_entry.dart';
 export 'session/session_state.dart';
 export 'session/pending_confirmation.dart';
+export 'session/run_mode.dart';
 export 'workspace/workspace_index.dart';
 export 'version.dart';

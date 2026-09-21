@@ -3,6 +3,8 @@ import 'package:path/path.dart' as p;
 import 'package:claudart/commands/teardown.dart' show runTeardown, TeardownCategory;
 import 'package:claudart/paths.dart';
 import 'package:claudart/registry.dart';
+import 'package:claudart/handoff_template.dart' show blankHandoff;
+import 'package:claudart/session/run_mode.dart';
 import '../helpers/mocks.dart';
 
 const _projectRoot = '/projects/my-app';
@@ -590,6 +592,68 @@ void main() {
       final skills = io.read(skillsPathFor(_workspace));
       // User-entered pattern used.
       expect(skills, contains('Parser crashes on malformed input.'));
+    });
+  });
+
+  // ── Headless mode ────────────────────────────────────────────────────────────
+
+  group('teardown — headless', () {
+    Never Function(String) throwOnCall(String label) =>
+        (_) => throw StateError('headless must never call $label');
+
+    test('debugComplete status archives without asking anything — every '
+        'human touchpoint would throw if called', () async {
+      final completeHandoff = _richHandoff.replaceFirst(
+        'debug-in-progress',
+        'debug-complete',
+      );
+      final io = _io(handoff: completeHandoff);
+
+      await runTeardown(
+        io: io,
+        projectRootOverride: _projectRoot,
+        mode: RunMode.headless,
+        confirmFn: (q) => throw StateError('headless must never call confirmFn: $q'),
+        promptFn: (q, {optional = false}) =>
+            throw StateError('headless must never call promptFn: $q'),
+        pickFn: (items, {startIndex = 0}) =>
+            throw StateError('headless must never call pickFn'),
+        exitFn: _throwExit,
+      );
+
+      expect(io.read(handoffPathFor(_workspace)), equals(blankHandoff),
+          reason: 'resolved path resets the handoff, same as interactive');
+      expect(_archives(io), hasLength(1));
+      final skills = io.read(skillsPathFor(_workspace));
+      expect(skills, contains('resolved'),
+          reason: 'resolved sessions promote to skills.md same as interactive');
+    });
+
+    test('non-debugComplete status saves a reminder instead of archiving, '
+        'handoff left untouched', () async {
+      final io = _io(handoff: _richHandoff); // status: debug-in-progress
+
+      await expectLater(
+        runTeardown(
+          io: io,
+          projectRootOverride: _projectRoot,
+          mode: RunMode.headless,
+          confirmFn: throwOnCall('confirmFn'),
+          promptFn: (q, {optional = false}) =>
+              throw StateError('headless must never call promptFn: $q'),
+          pickFn: (items, {startIndex = 0}) =>
+              throw StateError('headless must never call pickFn'),
+          exitFn: _throwExit,
+        ),
+        throwsA(isA<_ExitException>().having((e) => e.code, 'code', 0)),
+      );
+
+      expect(io.read(handoffPathFor(_workspace)), equals(_richHandoff),
+          reason: 'unresolved path never resets the handoff — same as a '
+              'human declining the interactive confirm');
+      expect(_archives(io), hasLength(1),
+          reason: 'a reminder is still archived — headless never silently '
+              'discards an unresolved session\'s context');
     });
   });
 }
