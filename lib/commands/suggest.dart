@@ -19,9 +19,15 @@ Future<void> runSuggest({
   String? projectRootOverride,
   Never Function(int code)? exitFn,
   PipelineExecutor? executor,
+  bool Function(String question)? confirmFn,
+  String? Function(String question, {bool optional})? promptFn,
+  int Function(List<String> items)? pickFn,
 }) async {
-  final fileIO = io   ?? const RealFileIO();
-  final exit_  = exitFn ?? exit;
+  final fileIO   = io       ?? const RealFileIO();
+  final exit_    = exitFn   ?? exit;
+  final confirm_ = confirmFn ?? confirm;
+  final prompt_  = promptFn ?? prompt;
+  final pick_    = pickFn   ?? arrowMenu;
 
   // ── Locate project ─────────────────────────────────────────────────────────
 
@@ -53,12 +59,8 @@ Future<void> runSuggest({
   final status  = readStatus(handoff);
 
   if (status == 'ready-for-debug' || status == 'debug-in-progress') {
-    stdout.write(
-      '\n  ${ansi.bold}⚠${ansi.reset}  Handoff status is ${ansi.bold}$status${ansi.reset} — suggest already ran.\n'
-      '     Re-run suggest and overwrite? [y/n] ',
-    );
-    final input = stdin.readLineSync();
-    if (input?.toLowerCase() != 'y') {
+    print('\n  ${ansi.bold}⚠${ansi.reset}  Handoff status is ${ansi.bold}$status${ansi.reset} — suggest already ran.');
+    if (!confirm_('Re-run suggest and overwrite?')) {
       print('Aborted.');
       exit_(0);
     }
@@ -144,7 +146,7 @@ Future<void> runSuggest({
     _printSection('CONSTRAINTS',    tagOr(analysisOut, 'CONSTRAINTS'));
     print('${ansi.dim}${'─' * 44}${ansi.reset}\n');
 
-    final choice = arrowMenu([
+    final choice = pick_([
       'approve  ${ansi.dim}(save analysis to handoff)${ansi.reset}',
       'refine  ${ansi.dim}(add feedback · re-analyze)${ansi.reset}',
       'exit  ${ansi.dim}(quit without saving)${ansi.reset}',
@@ -159,8 +161,7 @@ Future<void> runSuggest({
 
     // ── Refine ────────────────────────────────────────────────────────────────
 
-    stdout.write('\n  What needs to change? ');
-    final feedback = stdin.readLineSync()?.trim() ?? '';
+    final feedback = prompt_('What needs to change?', optional: true)?.trim() ?? '';
     if (feedback.isEmpty) continue;
 
     print('');
