@@ -16,10 +16,13 @@ analyzer:
     dead_code: warning
     # Bare-string switches — see custom_lint block below for the rule itself
     bare_string_for_enum: error
+    # Enum-values loop inside a single test() — see custom_lint block below
+    enum_values_loop_in_single_test: error
 
 custom_lint:
   rules:
     - bare_string_for_enum
+    - enum_values_loop_in_single_test
 
 linter:
   rules:

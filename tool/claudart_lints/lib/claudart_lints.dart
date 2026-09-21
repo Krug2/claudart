@@ -1,4 +1,5 @@
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/error/listener.dart';
 import 'package:custom_lint_builder/custom_lint_builder.dart';
 
@@ -8,6 +9,7 @@ class _ClaudartLints extends PluginBase {
   @override
   List<LintRule> getLintRules(CustomLintConfigs configs) => [
         BareStringForEnum(),
+        EnumValuesLoopInSingleTest(),
       ];
 }
 
@@ -53,4 +55,67 @@ class BareStringForEnum extends DartLintRule {
     }
     return false;
   }
+}
+
+/// Flags a `for` loop over `SomeEnum.values` nested inside a single
+/// `test()` body. dartrix's `testing` paradigm (PARADIGMS.md): "Matrix-driven
+/// ... Enum-owned test groups, generic bodies, test names from variant
+/// identity." A loop inside one `test()` collapses every variant's pass/fail
+/// into one indistinguishable result — the first failure stops the loop and
+/// hides every variant after it. The loop must wrap `test()`, one call per
+/// variant, never the reverse.
+class EnumValuesLoopInSingleTest extends DartLintRule {
+  EnumValuesLoopInSingleTest() : super(code: _code);
+
+  static const _code = LintCode(
+    name: 'enum_values_loop_in_single_test',
+    problemMessage:
+        'Looping over enum .values inside a single test() body collapses '
+        'every variant into one pass/fail and hides which one broke.',
+    correctionMessage:
+        'Move the for loop outside test() — one test() call per variant, '
+        'named from the variant identity.',
+  );
+
+  @override
+  void run(
+    CustomLintResolver resolver,
+    ErrorReporter reporter,
+    CustomLintContext context,
+  ) {
+    context.registry.addMethodInvocation((node) {
+      if (node.methodName.name != 'test') return;
+      final callback = node.argumentList.arguments
+          .whereType<FunctionExpression>()
+          .firstOrNull;
+      if (callback == null) return;
+
+      final finder = _EnumValuesForLoopFinder();
+      callback.body.accept(finder);
+      for (final loop in finder.matches) {
+        reporter.atNode(loop, _code);
+      }
+    });
+  }
+}
+
+/// Collects every `for`-each loop whose iterable is a `.values` access
+/// (e.g. `MyEnum.values`), found anywhere within a visited subtree.
+class _EnumValuesForLoopFinder extends RecursiveAstVisitor<void> {
+  final List<ForStatement> matches = [];
+
+  @override
+  void visitForStatement(ForStatement node) {
+    final forLoopParts = node.forLoopParts;
+    if (forLoopParts is ForEachParts && _isValuesAccess(forLoopParts.iterable)) {
+      matches.add(node);
+    }
+    super.visitForStatement(node);
+  }
+
+  static bool _isValuesAccess(Expression iterableExpression) => switch (iterableExpression) {
+        PropertyAccess(:final propertyName) => propertyName.name == 'values',
+        PrefixedIdentifier(:final identifier) => identifier.name == 'values',
+        _ => false,
+      };
 }

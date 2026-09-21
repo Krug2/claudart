@@ -33,15 +33,17 @@ void main() {
 
   group('RouteTag.wireTag — uniqueness across variants', () {
     test('no two variants share a wire name', () {
-      final wireNames = RouteTag.values.map((t) => t.wireTag).toList();
+      final wireNames = RouteTag.values.map((tag) => tag.wireTag).toList();
       expect(wireNames.toSet().length, equals(wireNames.length));
     });
+  });
 
-    test('every wire name is non-empty', () {
-      for (final tag in RouteTag.values) {
-        expect(tag.wireTag, isNotEmpty, reason: tag.name);
-      }
-    });
+  group('RouteTag.wireTag — non-empty per variant', () {
+    for (final tag in RouteTag.values) {
+      test(tag.name, () {
+        expect(tag.wireTag, isNotEmpty);
+      });
+    }
   });
 
   group('RouteTag.wireTag usable as runtime map key', () {
@@ -51,14 +53,18 @@ void main() {
     // const-created enum values — that's why the production maps in
     // `flow_steps.dart` and `suggest_steps.dart` are non-const at the
     // outer level (inner StepRoute values remain const).
-    test('runtime map literal accepts every variant as a key', () {
-      final routes = <String, int>{
-        for (final tag in RouteTag.values) tag.wireTag: tag.index,
-      };
+    final routes = <String, int>{
+      for (final tag in RouteTag.values) tag.wireTag: tag.index,
+    };
+
+    test('map literal has one entry per variant', () {
       expect(routes.length, equals(RouteTag.values.length));
-      for (final tag in RouteTag.values) {
-        expect(routes[tag.wireTag], equals(tag.index));
-      }
     });
+
+    for (final tag in RouteTag.values) {
+      test('${tag.name} — routes[wireTag] equals index', () {
+        expect(routes[tag.wireTag], equals(tag.index));
+      });
+    }
   });
 }
