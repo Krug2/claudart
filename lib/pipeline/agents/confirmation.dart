@@ -62,9 +62,11 @@ String confirmationProtocolInstructions() {
   final allowed = ConfirmationOption.values.map((option) => option.name).join(', ');
   return 'When you present something for the user to confirm before '
       'proceeding, after they reply, classify their reply into exactly '
-      'one of: $allowed. Emit it as '
-      '<$confirmationWireTag>one of: $allowed</$confirmationWireTag> '
-      'before taking the corresponding action. Do not guess — if the '
-      'reply does not clearly confirm, request a change, or reject, '
-      'emit `clarify` and ask a follow-up question instead of acting.';
+      'one of: $allowed. Emit your classification as a single value inside '
+      'the tag, not the list of options — for example, if the reply '
+      'confirms, emit exactly '
+      '<$confirmationWireTag>confirm</$confirmationWireTag>. Do not guess '
+      '— if the reply does not clearly confirm, request a change, or '
+      'reject, emit <$confirmationWireTag>clarify</$confirmationWireTag> '
+      'and ask a follow-up question instead of acting.';
 }

@@ -60,4 +60,31 @@ void main() {
       contains('<$confirmationWireTag>'),
     );
   });
+
+  test('confirmationProtocolInstructions demonstrates a wire format that '
+      'actually parses — not an ambiguous schema-in-tag example', () {
+    // Regression: the instructions once told the model to emit
+    // <CONFIRMATION>one of: confirm, modify, clarify, reject</CONFIRMATION>
+    // as if that whole string were the value. extractConfirmationOption
+    // only ever matches a single enum name, so that literal example — if
+    // an LLM followed it verbatim — always parsed to null. Every embedded
+    // example tag in the instructions must itself be parseable.
+    final instructions = confirmationProtocolInstructions();
+    final tagPattern = RegExp(
+      '<$confirmationWireTag>(.*?)</$confirmationWireTag>',
+      caseSensitive: false,
+    );
+    final matches = tagPattern.allMatches(instructions).toList();
+    expect(matches, isNotEmpty, reason: 'no example tag found to verify');
+    for (final match in matches) {
+      final parsed = extractConfirmationOption(match.group(0)!);
+      expect(
+        parsed,
+        isNotNull,
+        reason: 'embedded example "${match.group(0)}" does not parse to a '
+            'ConfirmationOption — the instructions demonstrate an '
+            'unparseable wire format',
+      );
+    }
+  });
 }
