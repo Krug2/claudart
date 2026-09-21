@@ -188,7 +188,9 @@ const _maxIndexEntries = 300;
 // Directory.listSync's own order is filesystem-dependent. followLinks:
 // false — a symlink cycle would otherwise recurse without bound. A single
 // unreadable subdirectory (permissions, a transient FS race) is
-// best-effort: it's skipped, not fatal to the whole walk.
+// best-effort: the directory's own path is already in [out] by the time
+// its listSync would throw (the caller adds it before recursing), so only
+// its unreadable children are skipped — not fatal to the whole walk.
 // Returns true when the walk stopped because it hit [limit], not because it
 // ran out of directories to visit — the only way a caller can tell "there
 // may be more" from "that's everything," since [out] itself is capped at
