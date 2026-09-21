@@ -57,8 +57,12 @@ class PipelineExecutor {
   /// escalates to the user instead of silently falling through.
   final bool strict;
 
-  /// When true, emits a dim trace line to stdout for pipeline-internal
+  /// When true, [runFuture] prints a dim trace line for pipeline-internal
   /// events not otherwise visible to the user (e.g. a postProcess rewrite).
+  /// [run] itself never does this IO — see this file's header: direct
+  /// `run()` subscribers (e.g. zedup's UI) get no stdout side-effects
+  /// regardless of this flag. It only reaches [AgentCompleted.postProcessRewrote],
+  /// which [runFuture] reads to decide whether to print.
   final bool verbose;
 
   PipelineExecutor({
@@ -70,10 +74,6 @@ class PipelineExecutor {
   })  : _runner           = runner           ?? defaultClaudeRunner,
         _prompter         = prompter         ?? _defaultPrompter,
         _approvalSelector = approvalSelector ?? _defaultApprovalSelector;
-
-  void _trace(String msg) {
-    if (verbose) stdout.writeln('  ${ansi.dim}◦ $msg${ansi.reset}');
-  }
 
   /// Runs [steps] and emits [PipelineEvent]s for each lifecycle transition.
   ///
@@ -133,14 +133,12 @@ class PipelineExecutor {
       final stored = current.postProcess != null
           ? current.postProcess!(rawText, ctx)
           : rawText;
-      if (current.postProcess != null && stored != rawText) {
-        _trace('postProcess fired on "${current.id}" — output rewritten');
-      }
+      final rewrote = current.postProcess != null && stored != rawText;
       ctx = ctx
           .withUsage(ctx.usage + result.usage)
           .withSlot(current.id, stored);
 
-      yield AgentCompleted(stepId: current.id, usage: result.usage);
+      yield AgentCompleted(stepId: current.id, usage: result.usage, postProcessRewrote: rewrote);
 
       // Find first matching tag → route. `matchedTag` is typed
       // [RouteTag] so downstream extractions read `.wireTag` once and
@@ -308,6 +306,16 @@ class PipelineExecutor {
       stdout.write('\x1B[2K\r');
     }
 
+    // Clears the spinner, then renders the typed colored block for a
+    // subagent-lifecycle event. Shared by AgentCompleted/AgentFailed/
+    // AgentEscalating — same rendering, different fields per event.
+    void renderSubagentEvent(PipelineEvent event) {
+      clearSpinner();
+      final response =
+          toResponse(event, speaker: Speaker.subagent, workspace: wsLabel);
+      if (response != null) print('${render.render(response)}\n');
+    }
+
     await for (final event in run(
       steps:        steps,
       ctx:          ctx,
@@ -318,14 +326,15 @@ class PipelineExecutor {
         case AgentStarted(:final label, :final displayStep, :final displayTotal):
           startSpinner(label, displayStep, displayTotal);
 
-        case AgentCompleted():
+        case AgentCompleted(:final stepId, :final postProcessRewrote):
+          if (verbose && postProcessRewrote) {
+            print('  ${ansi.dim}◦ postProcess fired on "$stepId" — output rewritten${ansi.reset}');
+          }
+          renderSubagentEvent(event);
+
         case AgentFailed():
         case AgentEscalating():
-          // Clear the spinner line, then render the typed colored block.
-          clearSpinner();
-          final response =
-              toResponse(event, speaker: Speaker.subagent, workspace: wsLabel);
-          if (response != null) print('${render.render(response)}\n');
+          renderSubagentEvent(event);
 
         case AgentResumed():
           break; // Next AgentStarted restarts the spinner.

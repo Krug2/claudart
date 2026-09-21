@@ -75,6 +75,16 @@ class AgentStep {
   /// When true, passes `--bare` to the claude CLI subprocess. Use for steps
   /// that must output structured text only — prevents project CLAUDE.md from
   /// overriding the system prompt with agent-mode instructions.
+  ///
+  /// This is not just a formatting toggle: `--bare` strictly requires
+  /// `ANTHROPIC_API_KEY` or an `apiKeyHelper` and never reads OAuth or
+  /// keychain credentials (verified live — a normal OAuth-logged-in
+  /// session gets "Not logged in" under `--bare`). Since this pipeline's
+  /// standard auth path is the ambient `claude login` OAuth session (see
+  /// `defaultClaudeRunner`'s session-isolation comment in
+  /// pipeline_executor.dart), setting this true breaks any step for a user
+  /// without `ANTHROPIC_API_KEY` set — not a hypothetical, reproduced
+  /// directly. No step in this codebase currently sets it.
   final bool bare;
 
   const AgentStep({
