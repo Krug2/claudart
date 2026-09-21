@@ -7,11 +7,11 @@ import '../helpers/mocks.dart';
 
 // suggest_test.dart — validation-path coverage for runSuggest.
 //
-// Scope: only the paths reachable without stdin/arrowMenu — runSuggest
-// has no injectable seam for its two stdin.readLineSync() call sites or
-// its arrowMenu() call, unlike setup.dart's confirmFn/promptFn/pickFn
-// pattern. Full coverage of the interactive review/refine loop needs that
-// gap closed first; this covers what's safely testable today.
+// Scope: runSuggest has injectable confirmFn/promptFn/pickFn seams
+// (matching setup.dart's pattern), so stdin/arrowMenu aren't the blocker.
+// The remaining gap is a realistic PipelineExecutor output to drive the
+// approve/refine loop — full coverage of that loop needs a fixture for
+// that, not an injection seam; this covers what's safely testable today.
 
 const _projectRoot = '/projects/my-app';
 const _workspace   = '/workspaces/my-app';
