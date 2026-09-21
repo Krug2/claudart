@@ -137,7 +137,7 @@ void main() {
         required String systemPrompt,
         required String message,
         required String workingDir,
-      bool bare = false,
+        bool bare = false,
       }) async {
         mock.captured.add(CallRecord(model: model, systemPrompt: systemPrompt, message: message));
         if (model == AgentModel.haiku) {
@@ -180,7 +180,7 @@ void main() {
         required String systemPrompt,
         required String message,
         required String workingDir,
-      bool bare = false,
+        bool bare = false,
       }) async {
         step++;
         final text = step == 1 ? _plannerXml : _applierXml;
@@ -264,7 +264,7 @@ void main() {
         required String systemPrompt,
         required String message,
         required String workingDir,
-      bool bare = false,
+        bool bare = false,
       }) async {
         callCount++;
         final text = callCount == 1 ? planXml : constructXml;
