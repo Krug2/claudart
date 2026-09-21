@@ -77,6 +77,17 @@ Read the following files at the start of every session before doing anything els
 - /Users/aksana.buster/dev/dev_tools/claude/claudart/handoff.md
 - /Users/aksana.buster/dev/dev_tools/claude/claudart/skills.md
 
+### Paradigms — dartrix owns this, claudart applies it
+- /Users/aksana.buster/dev/apps/dartrix/PARADIGMS.md
+
+dartrix's law, not claudart's. This is a pointer, not a copy — do not restate or
+duplicate its rules here; if a rule doesn't exist yet, it's proposed as a PR against
+that file (see PARADIGMS.md's own Growth section), not invented in claudart.
+`consider` posture applies even to exploration: read it for compact grounding before
+writing or reviewing any code, so violations (bare strings, ungrouped identical
+switch cases, etc.) don't get written in the first place — `dart run custom_lint`
+is the backstop for what slips through, not the first line of defense.
+
 ---
 
 ## Git rules

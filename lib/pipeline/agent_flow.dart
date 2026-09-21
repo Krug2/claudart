@@ -152,7 +152,11 @@ enum AgentFlow {
         AgentFlow.save     => saveCommandTemplate(workspacePath, projectName),
         AgentFlow.teardown => teardownCommandTemplate(workspacePath, projectName),
         AgentFlow.flow     => flowCommandTemplate(workspacePath, projectName),
-        AgentFlow.research || AgentFlow.free || AgentFlow.cli || AgentFlow.guiDesign => '',
+        AgentFlow.research ||
+        AgentFlow.free ||
+        AgentFlow.cli ||
+        AgentFlow.guiDesign =>
+          '',
       };
 
   // ── Serialisation ────────────────────────────────────────────────────────────
