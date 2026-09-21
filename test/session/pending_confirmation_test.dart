@@ -54,6 +54,24 @@ void main() {
       expect(roundTripped.onConfirmCommand, equals(confirmation.onConfirmCommand));
       expect(roundTripped.createdAt, equals(confirmation.createdAt));
     });
+
+    test('normalizes a local-time createdAt to UTC on both write and read '
+        '— durable state must be timezone-unambiguous regardless of which '
+        'consumer wrote or reads it', () {
+      final localCreatedAt = DateTime(2026, 9, 20, 22, 0, 0);
+      final confirmation = PendingConfirmation(
+        question: 'q',
+        onConfirmCommand: 'claudart save',
+        createdAt: localCreatedAt,
+      );
+
+      final json = confirmation.toJson();
+      expect(json['createdAt'], endsWith('Z'));
+
+      final roundTripped = PendingConfirmation.fromJson(json);
+      expect(roundTripped.createdAt.isUtc, isTrue);
+      expect(roundTripped.createdAt, equals(localCreatedAt.toUtc()));
+    });
   });
 
   group('PendingConfirmationStore.load', () {

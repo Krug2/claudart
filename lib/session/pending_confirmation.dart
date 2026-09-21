@@ -41,13 +41,19 @@ class PendingConfirmation {
       PendingConfirmation(
         question: json['question'] as String,
         onConfirmCommand: json['onConfirmCommand'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
+        // .toUtc() normalizes at the deserialization boundary: a
+        // timezone-less stored string parses as local time, which would
+        // shift the instant if a consumer reads this durable file under a
+        // different TZ than the one that wrote it.
+        createdAt: DateTime.parse(json['createdAt'] as String).toUtc(),
       );
 
   Map<String, dynamic> toJson() => {
         'question': question,
         'onConfirmCommand': onConfirmCommand,
-        'createdAt': createdAt.toIso8601String(),
+        // .toUtc() so the ISO-8601 string always carries a 'Z' suffix —
+        // unambiguous regardless of which consumer's local TZ wrote it.
+        'createdAt': createdAt.toUtc().toIso8601String(),
       };
 }
 

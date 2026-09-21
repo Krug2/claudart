@@ -58,7 +58,7 @@ Future<void> runConfirmPending(
     PendingConfirmation(
       question: question,
       onConfirmCommand: onConfirm,
-      createdAt: DateTime.now(),
+      createdAt: DateTime.now().toUtc(),
     ),
     io: fileIO,
   );
