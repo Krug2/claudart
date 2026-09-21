@@ -69,6 +69,17 @@ void main() {
         routes: const {RouteTag.handoff: Complete()},
         postProcess: (raw, ctx) => '<${RouteTag.handoff.wireTag}>$raw</${RouteTag.handoff.wireTag}>',
       );
+      // A second step that would only ever run via routing fallthrough —
+      // run() advances to the next step in `steps` when no route matches.
+      // If it starts, routing missed the tag postProcess injected (i.e.
+      // matched against the raw, untagged text instead).
+      final decoy = AgentStep(
+        id: 'decoy',
+        label: 'Decoy',
+        model: AgentModel.haiku,
+        systemPrompt: 'sys',
+        buildPrompt: (_) => 'msg',
+      );
 
       final exec = PipelineExecutor(
         runner: ({
@@ -82,13 +93,17 @@ void main() {
       );
 
       final events = await exec
-          .run(steps: [step], ctx: _ctx(), displayStep: 1, displayTotal: 1)
+          .run(steps: [step, decoy], ctx: _ctx(), displayStep: 1, displayTotal: 2)
           .toList();
 
-      // Complete() routing only fires on a tag match — reaching
-      // PipelineCompleted here (rather than falling through past the last
-      // step for lack of a match) proves the tag postProcess injected was
-      // the one routing actually saw.
+      // Note: PipelineCompleted always fires exactly once regardless of
+      // whether a route matched (a fallthrough past the last step also
+      // completes) — asserting on it alone wouldn't prove routing used the
+      // injected tag. Asserting decoy never started does: Complete()
+      // terminates the pipeline immediately after step 'a' only if the
+      // tag postProcess injected was actually matched.
+      final startedIds = events.whereType<AgentStarted>().map((e) => e.stepId).toList();
+      expect(startedIds, equals(['a']));
       expect(events.whereType<PipelineCompleted>(), hasLength(1));
     });
 

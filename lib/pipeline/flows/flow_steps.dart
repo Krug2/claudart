@@ -176,46 +176,60 @@ abstract final class FlowSteps {
 // and slow plan/construct for entries past what the model would use anyway.
 const _maxIndexEntries = 300;
 
+// Depth-first, sorted, bounded walk of [dir]'s subdirectories — appends each
+// relative path to [out] and stops entirely once [out] reaches [limit].
+// Deliberately not Directory.listSync(recursive: true): that walks the
+// entire subtree before anything can be truncated, so a huge repo pays the
+// full IO/traversal cost even though only the first _maxIndexEntries ever
+// get used. Sorting each level before recursing keeps the walk (and
+// therefore the truncation point) deterministic despite stopping early —
+// Directory.listSync's own order is filesystem-dependent. followLinks:
+// false — a symlink cycle would otherwise recurse without bound. A single
+// unreadable subdirectory (permissions, a transient FS race) is
+// best-effort: it's skipped, not fatal to the whole walk.
+void _walkDirsSortedBounded(Directory dir, String projectRoot, List<String> out, int limit) {
+  if (out.length >= limit) return;
+  List<Directory> children;
+  try {
+    children = dir.listSync(followLinks: false).whereType<Directory>().toList()
+      ..sort((a, b) => a.path.compareTo(b.path));
+  } on FileSystemException {
+    return;
+  }
+  for (final child in children) {
+    if (out.length >= limit) return;
+    out.add(p.relative(child.path, from: projectRoot));
+    _walkDirsSortedBounded(child, projectRoot, out, limit);
+  }
+}
+
 // Returns a compact snapshot of the project's directory structure and known
 // enum types. Injected into plan/construct so agents cannot invent paths or
 // types that do not exist in the actual codebase.
 String _projectIndex(String projectRoot) {
   final lines = <String>[];
 
-  // Directory tree for test/ and lib/src/. followLinks: false — a symlink
-  // cycle under either root would otherwise recurse without bound. Sorted —
-  // Directory.listSync's order is filesystem-dependent, and this text is
-  // injected verbatim into a prompt, so an unsorted list makes the prompt
-  // (and therefore the model's output) nondeterministic across machines.
-  final scanRoots = ['test', p.join('lib', 'src')];
+  // Directory tree for test/ and lib/. 'lib' (not 'lib/src') — a plain Dart
+  // CLI package (this repo included) puts source straight under lib/, not
+  // behind an src/ wrapper; scanning 'lib' still covers lib/src/ as a
+  // subtree where that convention is used.
+  final scanRoots = ['test', 'lib'];
   final dirs = <String>[];
   for (final root in scanRoots) {
     final dir = Directory(p.join(projectRoot, root));
     if (!dir.existsSync()) continue;
     dirs.add(root);
-    try {
-      dir
-          .listSync(recursive: true, followLinks: false)
-          .whereType<Directory>()
-          .map((d) => p.relative(d.path, from: projectRoot))
-          .forEach(dirs.add);
-    } on FileSystemException {
-      // Best-effort, same as the enum scan below — an unreadable
-      // subdirectory (permissions, a transient FS race) shouldn't crash
-      // flow planning. $root itself is still listed; its unreachable
-      // children just aren't.
-      continue;
-    }
+    if (dirs.length >= _maxIndexEntries) break;
+    _walkDirsSortedBounded(dir, projectRoot, dirs, _maxIndexEntries);
   }
   if (dirs.isNotEmpty) {
-    dirs.sort();
     final truncated = dirs.length > _maxIndexEntries;
     final shown = truncated ? dirs.take(_maxIndexEntries).toList() : dirs;
     lines
       ..add('Existing directories (use only these as parent paths for new files):')
       ..addAll(shown.map((d) => '  $d'));
     if (truncated) {
-      lines.add('  … ${dirs.length - _maxIndexEntries} more directories not shown');
+      lines.add('  … stopped after $_maxIndexEntries entries (more exist)');
     }
   }
 
