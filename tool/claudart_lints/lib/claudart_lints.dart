@@ -76,9 +76,12 @@ class BareStringForEnum extends DartLintRule {
   /// wrapped in parentheses (`(doThing())`), conditionals
   /// (`cond ? doThing() : other`), or any other nesting.
   static bool _containsAction(AstNode node) {
-    final finder = _ActionExpressionFinder();
-    node.accept(finder);
-    return finder.found;
+    try {
+      node.accept(const _ActionExpressionFinder());
+      return false;
+    } on _ActionFound {
+      return true;
+    }
   }
 
   static bool _isStringLiteralCase(SwitchMember member) {
@@ -99,27 +102,31 @@ class BareStringForEnum extends DartLintRule {
 
 }
 
+/// Thrown by [_ActionExpressionFinder] the moment it finds an action, so the
+/// walk stops immediately instead of finishing the subtree — a switch case
+/// is small, but this runs once per case across every switch in the file.
+class _ActionFound implements Exception {
+  const _ActionFound();
+}
+
 /// Finds whether a case body (a list of statements, unlike a switch
 /// expression's single `=>` expression) contains a call/await anywhere —
 /// the same "does something" signal [BareStringForEnum._containsAction]
-/// checks for switch expressions.
+/// checks for switch expressions. Throws [_ActionFound] on the first match
+/// rather than setting a flag, so [AstNode.visitChildren] unwinds instead of
+/// continuing to walk sibling subtrees that can no longer change the result.
 class _ActionExpressionFinder extends RecursiveAstVisitor<void> {
-  bool found = false;
+  const _ActionExpressionFinder();
 
   @override
-  void visitMethodInvocation(MethodInvocation node) {
-    found = true;
-  }
+  void visitMethodInvocation(MethodInvocation node) => throw const _ActionFound();
 
   @override
-  void visitFunctionExpressionInvocation(FunctionExpressionInvocation node) {
-    found = true;
-  }
+  void visitFunctionExpressionInvocation(FunctionExpressionInvocation node) =>
+      throw const _ActionFound();
 
   @override
-  void visitAwaitExpression(AwaitExpression node) {
-    found = true;
-  }
+  void visitAwaitExpression(AwaitExpression node) => throw const _ActionFound();
 }
 
 /// Flags a `for` loop over `SomeEnum.values` nested inside a single
