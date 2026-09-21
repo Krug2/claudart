@@ -1,5 +1,7 @@
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
+import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/type.dart';
 import 'package:analyzer/error/listener.dart';
 import 'package:custom_lint_builder/custom_lint_builder.dart';
 
@@ -127,25 +129,43 @@ class EnumValuesLoopInSingleTest extends DartLintRule {
   }
 }
 
-/// Collects every `for`-each loop whose iterable is a `.values` access
-/// (e.g. `MyEnum.values`), found anywhere within a visited subtree.
+/// Collects every `for`-each loop whose iterable is `SomeEnum.values` —
+/// specifically an enum's static `.values`, not any `.values` getter
+/// (e.g. `someMap.values`, a completely unrelated, common Dart pattern
+/// that happens to share the property name).
 class _EnumValuesForLoopFinder extends RecursiveAstVisitor<void> {
   final List<ForStatement> matches = [];
 
   @override
   void visitForStatement(ForStatement node) {
     final forLoopParts = node.forLoopParts;
-    if (forLoopParts is ForEachParts && _isValuesAccess(forLoopParts.iterable)) {
+    if (forLoopParts is ForEachParts && _isEnumValuesAccess(forLoopParts.iterable)) {
       matches.add(node);
     }
     super.visitForStatement(node);
   }
 
-  static bool _isValuesAccess(Expression iterableExpression) => switch (iterableExpression) {
-        PropertyAccess(:final propertyName) => propertyName.name == 'values',
-        PrefixedIdentifier(:final identifier) => identifier.name == 'values',
+  /// True only when [iterableExpression] is `.values` accessed on an enum
+  /// type itself (`SomeEnum.values`), verified via the resolved element —
+  /// not by property name alone, which `someMap.values` also matches.
+  static bool _isEnumValuesAccess(Expression iterableExpression) => switch (iterableExpression) {
+        PropertyAccess(:final propertyName, :final target) =>
+          propertyName.name == 'values' && target != null && _referencesEnum(target),
+        PrefixedIdentifier(:final identifier, :final prefix) =>
+          identifier.name == 'values' && _referencesEnum(prefix),
         _ => false,
       };
+
+  /// True when [expression] itself refers to an enum declaration (as a
+  /// type reference, e.g. the `SomeEnum` in `SomeEnum.values`) or has a
+  /// static type whose element is an enum.
+  static bool _referencesEnum(Expression expression) {
+    if (expression is Identifier && expression.element is EnumElement) {
+      return true;
+    }
+    final type = expression.staticType;
+    return type is InterfaceType && type.element is EnumElement;
+  }
 }
 
 /// Flags two or more separate `case`s in the same switch expression whose
