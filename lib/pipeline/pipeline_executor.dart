@@ -30,13 +30,14 @@ import 'pipeline_context.dart';
 import 'pipeline_event.dart';
 import 'route_tag.dart';
 import 'step_mode.dart';
+import 'step_result.dart';
 import 'step_route.dart';
 import 'usage.dart';
 import 'xml_tags.dart';
 
 // ── Injectable types ──────────────────────────────────────────────────────────
 
-typedef ClaudeRunner = Future<({String text, Usage usage})?> Function({
+typedef ClaudeRunner = Future<StepResult?> Function({
   required AgentModel model,
   required String systemPrompt,
   required String message,
@@ -139,7 +140,15 @@ class PipelineExecutor {
           .withUsage(ctx.usage + result.usage)
           .withSlot(current.id, stored);
 
-      yield AgentCompleted(stepId: current.id, usage: result.usage, postProcessRewrote: rewrote);
+      yield AgentCompleted(
+        stepId: current.id,
+        usage: result.usage,
+        postProcessRewrote: rewrote,
+        thinking: result.thinking,
+        stopReason: result.stopReason,
+        durationMs: result.durationMs,
+        numTurns: result.numTurns,
+      );
 
       // Find first matching tag → route. `matchedTag` is typed
       // [RouteTag] so downstream extractions read `.wireTag` once and
@@ -395,7 +404,68 @@ Future<T?> runWithSpinner<T>({
 
 // ── Default ClaudeRunner ──────────────────────────────────────────────────────
 
-Future<({String text, Usage usage})?> defaultClaudeRunner({
+/// The `event.type` values inside a `stream_event` line that
+/// `_accumulateThinking` cares about. Typed rather than matched as bare
+/// strings — claudart's own `bare_string_for_enum` lint (dartrix
+/// PARADIGMS.md) forbids exactly that dispatch shape.
+enum _StreamEventType {
+  contentBlockDelta('content_block_delta'),
+  messageDelta('message_delta');
+
+  const _StreamEventType(this.wire);
+
+  /// The literal value the claude CLI emits for `event.type`.
+  final String wire;
+
+  static _StreamEventType? fromWire(String? value) {
+    for (final t in values) {
+      if (t.wire == value) return t;
+    }
+    return null;
+  }
+}
+
+/// Parses one line of `--output-format stream-json --include-partial-messages`
+/// output for extended-thinking content. Two things only live in the stream,
+/// never on the final `"type":"result"` line: the thinking text itself
+/// (`content_block_delta` events with a `thinking_delta`) and its token
+/// count (the `message_delta` event's `usage.output_tokens_details
+/// .thinking_tokens`). Malformed or irrelevant lines are silently ignored —
+/// this is best-effort enrichment, not required for the step to succeed.
+void _accumulateThinking(
+  String line,
+  StringBuffer thinkingBuffer,
+  void Function(int) onThinkingTokens,
+) {
+  Map<String, dynamic> json;
+  try {
+    json = jsonDecode(line) as Map<String, dynamic>;
+  } on FormatException {
+    return;
+  }
+  if (json['type'] != 'stream_event') return;
+  final event = json['event'] as Map<String, dynamic>?;
+  if (event == null) return;
+
+  switch (_StreamEventType.fromWire(event['type'] as String?)) {
+    case _StreamEventType.contentBlockDelta:
+      final delta = event['delta'] as Map<String, dynamic>?;
+      if (delta?['type'] == 'thinking_delta') {
+        thinkingBuffer.write(delta!['thinking'] as String? ?? '');
+      }
+    case _StreamEventType.messageDelta:
+      final usage = event['usage'] as Map<String, dynamic>?;
+      final details = usage?['output_tokens_details'] as Map<String, dynamic>?;
+      final tokens = details?['thinking_tokens'] as int?;
+      if (tokens != null) onThinkingTokens(tokens);
+    case null:
+      // Every other stream_event subtype (message_start, content_block_start
+      // /stop, message_stop, ...) — nothing this helper needs.
+      break;
+  }
+}
+
+Future<StepResult?> defaultClaudeRunner({
   required AgentModel model,
   required String systemPrompt,
   required String message,
@@ -438,12 +508,19 @@ Future<({String text, Usage usage})?> defaultClaudeRunner({
     await process.stdin.close();
 
     final lines = <String>[];
+    // Extended-thinking text arrives incrementally as `thinking_delta`
+    // stream events, not on the final result line — only the final
+    // answer text is repeated there. Accumulated here as the stream is
+    // consumed rather than re-parsed afterward.
+    final thinkingBuffer = StringBuffer();
+    var thinkingTokens = 0;
     await for (final line in process.stdout
         .transform(const Utf8Decoder())
         .transform(const LineSplitter())) {
       if (line.trim().isEmpty) continue;
       lines.add(line);
       trace.writeStreamLine(line);
+      _accumulateThinking(line, thinkingBuffer, (t) => thinkingTokens = t);
     }
 
     final err  = await process.stderr.transform(const Utf8Decoder()).join();
@@ -470,6 +547,7 @@ Future<({String text, Usage usage})?> defaultClaudeRunner({
       cacheRead:     (raw['cache_read_input_tokens']     as int?) ?? 0,
       cacheCreation: (raw['cache_creation_input_tokens'] as int?) ?? 0,
       cost: (json['total_cost_usd'] as num?)?.toDouble() ?? 0,
+      thinkingTokens: thinkingTokens,
     );
     trace.writeSummary(
       modelAlias: model.alias,
@@ -482,7 +560,14 @@ Future<({String text, Usage usage})?> defaultClaudeRunner({
       cost: usage.cost,
       resultText: text,
     );
-    return (text: text, usage: usage);
+    return StepResult(
+      text: text,
+      usage: usage,
+      thinking: thinkingBuffer.isEmpty ? null : thinkingBuffer.toString(),
+      stopReason: json['stop_reason'] as String?,
+      durationMs: json['duration_ms'] as int?,
+      numTurns: json['num_turns'] as int?,
+    );
   } on Exception catch (e) {
     trace.writeException(e);
     stderr.writeln('claude call failed: $e');

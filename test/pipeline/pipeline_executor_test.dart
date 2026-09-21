@@ -15,6 +15,7 @@ import 'package:claudart/pipeline/pipeline_event.dart';
 import 'package:claudart/pipeline/pipeline_executor.dart';
 import 'package:claudart/pipeline/route_tag.dart';
 import 'package:claudart/pipeline/step_mode.dart';
+import 'package:claudart/pipeline/step_result.dart';
 import 'package:claudart/pipeline/step_route.dart';
 import 'package:claudart/pipeline/usage.dart';
 import 'package:test/test.dart';
@@ -59,7 +60,7 @@ void main() {
           required workingDir,
           StepMode mode = StepMode.project,
         }) async =>
-            (text: 'raw output', usage: const Usage(input: 1, output: 1, cacheRead: 0, cost: 0)),
+            StepResult(text: 'raw output', usage: const Usage(input: 1, output: 1, cacheRead: 0, cost: 0)),
       );
 
       final ctx = await exec.runFuture(
@@ -103,7 +104,7 @@ void main() {
           required workingDir,
           StepMode mode = StepMode.project,
         }) async =>
-            (text: 'no tags here', usage: const Usage(input: 1, output: 1, cacheRead: 0, cost: 0)),
+            StepResult(text: 'no tags here', usage: const Usage(input: 1, output: 1, cacheRead: 0, cost: 0)),
       );
 
       final events = await exec
@@ -138,7 +139,7 @@ void main() {
           required workingDir,
           StepMode mode = StepMode.project,
         }) async =>
-            (text: 'unchanged', usage: const Usage(input: 1, output: 1, cacheRead: 0, cost: 0)),
+            StepResult(text: 'unchanged', usage: const Usage(input: 1, output: 1, cacheRead: 0, cost: 0)),
       );
 
       final ctx = await exec.runFuture(
@@ -173,7 +174,7 @@ void main() {
           StepMode mode = StepMode.project,
         }) async {
           capturedMode = mode;
-          return (text: '', usage: const Usage(input: 1, output: 1, cacheRead: 0, cost: 0));
+          return StepResult(text: '', usage: const Usage(input: 1, output: 1, cacheRead: 0, cost: 0));
         },
       );
 
@@ -201,7 +202,7 @@ void main() {
           StepMode mode = StepMode.project,
         }) async {
           capturedMode = mode;
-          return (text: '', usage: const Usage(input: 1, output: 1, cacheRead: 0, cost: 0));
+          return StepResult(text: '', usage: const Usage(input: 1, output: 1, cacheRead: 0, cost: 0));
         },
       );
 
@@ -228,7 +229,7 @@ void main() {
           required workingDir,
           StepMode mode = StepMode.project,
         }) async =>
-            (text: text, usage: const Usage(input: 1, output: 1, cacheRead: 0, cost: 0));
+            StepResult(text: text, usage: const Usage(input: 1, output: 1, cacheRead: 0, cost: 0));
 
     test('verbose: true prints the trace line when postProcess rewrites output', () async {
       final exec = PipelineExecutor(runner: staticRunner('raw'), verbose: true);
