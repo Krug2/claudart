@@ -6,6 +6,8 @@
 // contracts: postProcess rewrites what's stored and routed on, and mode
 // reaches the runner. Minimal custom AgentSteps, no LLM.
 
+import 'dart:async';
+
 import 'package:claudart/pipeline/agent_model.dart';
 import 'package:claudart/pipeline/agent_step.dart';
 import 'package:claudart/pipeline/pipeline_context.dart';
@@ -18,6 +20,17 @@ import 'package:claudart/pipeline/usage.dart';
 import 'package:test/test.dart';
 
 const _projectRoot = '/tmp/test-project';
+
+Future<String> _capturePrinted(Future<void> Function() action) async {
+  final output = <String>[];
+  await runZoned(
+    action,
+    zoneSpecification: ZoneSpecification(
+      print: (_, __, ___, line) => output.add(line),
+    ),
+  );
+  return output.join('\n');
+}
 
 PipelineContext _ctx() => const PipelineContext(
       projectRoot: _projectRoot,
@@ -195,6 +208,73 @@ void main() {
       await exec.runFuture(steps: [step], ctx: _ctx(), displayStep: 1, displayTotal: 1);
 
       expect(capturedMode, equals(StepMode.project));
+    });
+  });
+
+  group('PipelineExecutor.runFuture — verbose trace output', () {
+    AgentStep rewritingStep() => AgentStep(
+          id: 'a',
+          label: 'Step A',
+          model: AgentModel.haiku,
+          systemPrompt: 'sys',
+          buildPrompt: (_) => 'msg',
+          postProcess: (raw, ctx) => raw.toUpperCase(),
+        );
+
+    ClaudeRunner staticRunner(String text) => ({
+          required model,
+          required systemPrompt,
+          required message,
+          required workingDir,
+          StepMode mode = StepMode.project,
+        }) async =>
+            (text: text, usage: const Usage(input: 1, output: 1, cacheRead: 0, cost: 0));
+
+    test('verbose: true prints the trace line when postProcess rewrites output', () async {
+      final exec = PipelineExecutor(runner: staticRunner('raw'), verbose: true);
+
+      final printed = await _capturePrinted(() => exec.runFuture(
+            steps: [rewritingStep()],
+            ctx: _ctx(),
+            displayStep: 1,
+            displayTotal: 1,
+          ));
+
+      expect(printed, contains('postProcess fired on "a"'));
+    });
+
+    test('verbose: false never prints the trace line, even when postProcess rewrites', () async {
+      final exec = PipelineExecutor(runner: staticRunner('raw'));
+
+      final printed = await _capturePrinted(() => exec.runFuture(
+            steps: [rewritingStep()],
+            ctx: _ctx(),
+            displayStep: 1,
+            displayTotal: 1,
+          ));
+
+      expect(printed, isNot(contains('postProcess fired')));
+    });
+
+    test('verbose: true but postProcess does not change the output — no trace line', () async {
+      final step = AgentStep(
+        id: 'a',
+        label: 'Step A',
+        model: AgentModel.haiku,
+        systemPrompt: 'sys',
+        buildPrompt: (_) => 'msg',
+        postProcess: (raw, ctx) => raw, // identity — never "rewrites"
+      );
+      final exec = PipelineExecutor(runner: staticRunner('raw'), verbose: true);
+
+      final printed = await _capturePrinted(() => exec.runFuture(
+            steps: [step],
+            ctx: _ctx(),
+            displayStep: 1,
+            displayTotal: 1,
+          ));
+
+      expect(printed, isNot(contains('postProcess fired')));
     });
   });
 }

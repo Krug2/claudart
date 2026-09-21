@@ -253,7 +253,7 @@ String _projectIndex(String projectRoot) {
     for (final file in enumDir.listSync(followLinks: false).whereType<File>()) {
       try {
         for (final line in file.readAsLinesSync()) {
-          final m = RegExp(r'^enum\s+(\w+)').firstMatch(line);
+          final m = RegExp(r'^\s*enum\s+(\w+)').firstMatch(line);
           if (m != null) names.add(m.group(1)!);
         }
       } on FileSystemException {

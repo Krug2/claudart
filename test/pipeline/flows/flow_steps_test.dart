@@ -133,6 +133,21 @@ void main() {
       expect(prompt, contains('Status'));
     });
 
+    test('an indented enum declaration (leading whitespace after a '
+        'conditional import/comment) is still found — the regex must not '
+        'anchor to column 0', () {
+      final enumsDir = Directory('${tempRoot.path}/lib/src/enums')..createSync(recursive: true);
+      File('${enumsDir.path}/mode.dart').writeAsStringSync(
+        "import 'dart:io' if (dart.library.html) 'dart:html';\n\n"
+        '  enum Mode { fast, slow }\n',
+      );
+
+      final prompt = promptFor(tempRoot.path);
+
+      expect(prompt, contains('Known enum types'));
+      expect(prompt, contains('Mode'));
+    });
+
     test('no lib/src/enums/ → no "Known enum types" line', () {
       Directory('${tempRoot.path}/lib').createSync(recursive: true);
       final prompt = promptFor(tempRoot.path);

@@ -3,18 +3,19 @@
 ## 2.0.0
 
 **Breaking:** `ClaudeRunner` (exported via `pipeline_executor.dart`) gained a
-`bare` named parameter. Any code constructing `PipelineExecutor(runner: ...)`
-with a function literal that doesn't declare `bare` will fail to type-check;
-add `bool bare = false` to the closure's parameter list. No compatibility
-adapter provided — `ClaudeRunner` has no known external consumers (no
-pub.dev publish, no other package in this workspace imports it; zedup has
-an unrelated same-named local type).
+`mode` named parameter (`StepMode`). Any code constructing
+`PipelineExecutor(runner: ...)` with a function literal that doesn't declare
+`mode` will fail to type-check; add `StepMode mode = StepMode.project` to
+the closure's parameter list. No compatibility adapter provided —
+`ClaudeRunner` has no known external consumers (no pub.dev publish, no
+other package in this workspace imports it; zedup has an unrelated
+same-named local type).
 
 - `AgentStep` gained `postProcess` (rewrite a step's output before it's
-  stored/routed on) and `bare` (passes `--bare` to the claude CLI
-  subprocess — no built-in step sets it; see the doc comment on the field
-  for why not).
-- `PipelineExecutor` applies `postProcess` before routing and wires `bare`
+  stored/routed on) and `mode` (`StepMode.bare` passes `--bare` to the
+  claude CLI subprocess — no built-in step uses it; see the doc comment on
+  the field for why not).
+- `PipelineExecutor` applies `postProcess` before routing and wires `mode`
   through to `ClaudeRunner`.
 - `flow`'s plan/construct steps inject a project directory/enum index so
   generated handoffs can't reference paths or types that don't exist.
