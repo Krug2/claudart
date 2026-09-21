@@ -1,9 +1,42 @@
+import 'dart:io' show FileSystemException;
+
 import 'package:test/test.dart';
+import 'package:claudart/file_io.dart';
 import 'package:claudart/session/pending_confirmation.dart';
 import 'package:claudart/paths.dart';
 import '../helpers/mocks.dart';
 
 const _workspace = '/workspace/my-app';
+
+/// A FileIO whose read() throws — simulates a real IO error (e.g. the file
+/// existed when fileExists() was checked but became unreadable before the
+/// read, a genuine TOCTOU race, not a hypothetical).
+class _ThrowsOnReadFileIO implements FileIO {
+  const _ThrowsOnReadFileIO();
+
+  @override
+  bool fileExists(String path) => true;
+
+  @override
+  String read(String path) => throw const FileSystemException('simulated IO error');
+
+  @override
+  void write(String path, String content) => throw UnimplementedError();
+  @override
+  void delete(String path) => throw UnimplementedError();
+  @override
+  bool dirExists(String path) => throw UnimplementedError();
+  @override
+  void createDir(String path) => throw UnimplementedError();
+  @override
+  List<String> listFiles(String dirPath, {String? extension}) => throw UnimplementedError();
+  @override
+  bool linkExists(String path) => throw UnimplementedError();
+  @override
+  void deleteLink(String path) => throw UnimplementedError();
+  @override
+  void createLink(String linkPath, String targetPath) => throw UnimplementedError();
+}
 
 void main() {
   group('PendingConfirmation — JSON round-trip', () {
@@ -45,6 +78,20 @@ void main() {
       final io = MemoryFileIO();
       io.write(pendingConfirmationPathFor(_workspace), '{"question": "only this"}');
       expect(PendingConfirmationStore.load(_workspace, io: io), isNull);
+    });
+
+    test('never throws — a real IO error on read() resolves to null, not '
+        'an uncaught exception (the file existed at the fileExists() '
+        'check but became unreadable before the read — a genuine race, '
+        'not hypothetical)', () {
+      expect(
+        () => PendingConfirmationStore.load(_workspace, io: const _ThrowsOnReadFileIO()),
+        returnsNormally,
+      );
+      expect(
+        PendingConfirmationStore.load(_workspace, io: const _ThrowsOnReadFileIO()),
+        isNull,
+      );
     });
 
     test('returns the written confirmation', () {

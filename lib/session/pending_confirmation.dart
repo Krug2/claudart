@@ -63,16 +63,20 @@ abstract final class PendingConfirmationStore {
     final fileIO = io ?? const RealFileIO();
     final path = pendingConfirmationPathFor(workspace);
     if (!fileIO.fileExists(path)) return null;
-    final raw = fileIO.read(path);
-    if (raw.isEmpty) return null;
     try {
+      final raw = fileIO.read(path);
+      if (raw.isEmpty) return null;
       return PendingConfirmation.fromJson(
         jsonDecode(raw) as Map<String, dynamic>,
       );
     } on Object {
-      // Broad catch is deliberate: missing/wrong-typed fields throw
-      // TypeError (an Error, not an Exception), and malformed JSON throws
-      // FormatException. Both must resolve to "no pending confirmation."
+      // Broad catch is deliberate: fileIO.read can throw a real IO error
+      // (e.g. the file existed at the check above but was deleted/became
+      // unreadable before this read — a genuine TOCTOU race, not
+      // hypothetical), missing/wrong-typed fields throw TypeError (an
+      // Error, not an Exception), and malformed JSON throws
+      // FormatException. All three must resolve to "no pending
+      // confirmation" — this method's contract is that it never throws.
       return null;
     }
   }
