@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:path/path.dart' as p;
 import '../file_io.dart';
 import '../paths.dart';
-import '../sensitivity/token_map.dart';
 
 /// Generates a human-readable token_map.md from token_map.json on demand.
 /// [workspacePath] routes token_map.json to the per-project workspace.
@@ -30,8 +29,6 @@ void runMap({FileIO? io, String? workspacePath}) {
     print('\n✗ token_map.json is malformed.\n');
     return;
   }
-
-  final tokenMap = TokenMap.load(tokenMapPath, io: fileIO);
 
   final buf = StringBuffer();
   buf.writeln('# Token Map');
@@ -61,7 +58,7 @@ void runMap({FileIO? io, String? workspacePath}) {
 
   fileIO.write(tokenMapMdPath, buf.toString());
   print('\n✓ Token map written to $tokenMapMdPath');
-  print('  ${allTokens.length} tokens (${tokenMap.size} active)\n');
+  print('  ${allTokens.length} tokens ($activeCount active)\n');
 }
 
 String _formatExtra(Map<String, dynamic> meta) {
