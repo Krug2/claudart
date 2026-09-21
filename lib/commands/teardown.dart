@@ -311,8 +311,7 @@ enum TeardownCategory {
         ioFilesystem    => 'io',
         stateManagement => 'state',
         dataParsing     => 'data',
-        general         => 'fix',
-        other           => 'fix',
+        general || other => 'fix',
       };
 
   /// Display label shown in the interactive menu.

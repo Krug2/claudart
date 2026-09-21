@@ -46,26 +46,26 @@ enum HandoffStatus {
 
   /// True when the workflow expects `/suggest` next.
   bool get expectsSuggest => switch (this) {
-        suggestInvestigating => true,
-        readyForSuggest      => true,
-        needsSuggest         => true,
-        noHandoff            => true,
-        unknown              => true,
-        readyForDebug        => false,
-        debugInProgress      => false,
-        debugComplete        => false,
+        suggestInvestigating ||
+        readyForSuggest ||
+        needsSuggest ||
+        noHandoff ||
+        unknown => true,
+        readyForDebug ||
+        debugInProgress ||
+        debugComplete => false,
       };
 
   /// True when the workflow expects `/debug` next.
   bool get expectsDebug => switch (this) {
-        readyForDebug        => true,
-        debugInProgress      => true,
-        suggestInvestigating => false,
-        readyForSuggest      => false,
-        debugComplete        => false,
-        needsSuggest         => false,
-        noHandoff            => false,
-        unknown              => false,
+        readyForDebug ||
+        debugInProgress => true,
+        suggestInvestigating ||
+        readyForSuggest ||
+        debugComplete ||
+        needsSuggest ||
+        noHandoff ||
+        unknown => false,
       };
 }
 

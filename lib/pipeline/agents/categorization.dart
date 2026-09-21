@@ -176,22 +176,23 @@ AgentModel routeModel(
 ) =>
     switch ((category, intent, complexity)) {
       // Systemic exploration or analysis always warrants maximum capability.
-      (_, IntentClass.explore,   ComplexityTier.systemic)  => AgentModel.opus,
-      (_, IntentClass.analyze,   ComplexityTier.systemic)  => AgentModel.opus,
+      (_, IntentClass.explore, ComplexityTier.systemic) ||
+      (_, IntentClass.analyze, ComplexityTier.systemic) =>
+        AgentModel.opus,
 
       // Any analysis or implementation at compound/atomic tier → balanced.
-      (_, IntentClass.analyze,   _)                         => AgentModel.sonnet,
-      (_, IntentClass.implement, _)                         => AgentModel.sonnet,
-
       // Compound exploration still benefits from balanced reasoning.
-      (_, IntentClass.explore,   ComplexityTier.compound)  => AgentModel.sonnet,
+      // Visual design — balanced reasoning for spec generation at any tier.
+      (_, IntentClass.analyze,   _) ||
+      (_, IntentClass.implement, _) ||
+      (_, IntentClass.explore,   ComplexityTier.compound) ||
+      (_, IntentClass.design,    _) =>
+        AgentModel.sonnet,
 
       // Atomic exploration and all documentation → fast lookup tier.
-      (_, IntentClass.explore,   _)                         => AgentModel.haiku,
-      (_, IntentClass.document,  _)                         => AgentModel.haiku,
-
-      // Visual design — balanced reasoning for spec generation at any tier.
-      (_, IntentClass.design,    _)                         => AgentModel.sonnet,
+      (_, IntentClass.explore,  _) ||
+      (_, IntentClass.document, _) =>
+        AgentModel.haiku,
     };
 
 /// Resolves an [AgentModel] from a categorize step's raw XML output by

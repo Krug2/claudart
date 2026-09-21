@@ -18,11 +18,15 @@ analyzer:
     bare_string_for_enum: error
     # Enum-values loop inside a single test() — see custom_lint block below
     enum_values_loop_in_single_test: error
+    # Repeated identical switch-expression bodies not grouped with || —
+    # see custom_lint block below
+    ungrouped_identical_switch_cases: error
 
 custom_lint:
   rules:
     - bare_string_for_enum
     - enum_values_loop_in_single_test
+    - ungrouped_identical_switch_cases
 
 linter:
   rules:

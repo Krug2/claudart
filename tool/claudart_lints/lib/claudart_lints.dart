@@ -10,6 +10,7 @@ class _ClaudartLints extends PluginBase {
   List<LintRule> getLintRules(CustomLintConfigs configs) => [
         BareStringForEnum(),
         EnumValuesLoopInSingleTest(),
+        UngroupedIdenticalSwitchCases(),
       ];
 }
 
@@ -145,4 +146,50 @@ class _EnumValuesForLoopFinder extends RecursiveAstVisitor<void> {
         PrefixedIdentifier(:final identifier) => identifier.name == 'values',
         _ => false,
       };
+}
+
+/// Flags two or more separate `case`s in the same switch expression whose
+/// bodies are identical, when they could instead be combined into one case
+/// with `||` pattern alternation. Cross-package paradigm: "group identical
+/// right-hand sides with || enum alternation; especially uniform-exit
+/// events" — repeated identical bodies are exactly the shape that rule
+/// forbids, and nothing previously enforced it.
+///
+/// Guarded cases (`pattern when condition => body`) are excluded even when
+/// their body text matches another case — combining them would silently
+/// drop the distinct guard condition, changing behavior, not just style.
+class UngroupedIdenticalSwitchCases extends DartLintRule {
+  UngroupedIdenticalSwitchCases() : super(code: _code);
+
+  static const _code = LintCode(
+    name: 'ungrouped_identical_switch_cases',
+    problemMessage:
+        'Two or more cases in this switch return the same value. Combine '
+        'them with || pattern alternation instead of repeating the body.',
+    correctionMessage:
+        'e.g. `patternA || patternB || patternC => sameValue` instead of '
+        'one case per pattern each repeating `=> sameValue`.',
+  );
+
+  @override
+  void run(
+    CustomLintResolver resolver,
+    ErrorReporter reporter,
+    CustomLintContext context,
+  ) {
+    context.registry.addSwitchExpression((node) {
+      final byBody = <String, List<SwitchExpressionCase>>{};
+      for (final switchCase in node.cases) {
+        if (switchCase.guardedPattern.whenClause != null) continue;
+        final key = switchCase.expression.toSource();
+        byBody.putIfAbsent(key, () => []).add(switchCase);
+      }
+      for (final group in byBody.values) {
+        if (group.length < 2) continue;
+        for (final switchCase in group) {
+          reporter.atNode(switchCase, _code);
+        }
+      }
+    });
+  }
 }

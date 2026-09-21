@@ -44,11 +44,11 @@ enum DesignSurface {
 
   /// Whether this surface counts toward "this work is design-heavy".
   bool get isDesignSurface => switch (this) {
-        DesignSurface.guiWidget   => true,
-        DesignSurface.guiPainter  => true,
-        DesignSurface.guiUi       => true,
-        DesignSurface.guiTheme    => true,
-        DesignSurface.logic       => false,
+        DesignSurface.guiWidget ||
+        DesignSurface.guiPainter ||
+        DesignSurface.guiUi ||
+        DesignSurface.guiTheme => true,
+        DesignSurface.logic => false,
       };
 
   /// Short label for log lines and the planner JSONL.
@@ -74,11 +74,11 @@ enum DesignSurface {
   /// the file ends in `.dart`. Lets `wave_painter.dart` outside a
   /// `/painters/` directory still route to [guiPainter].
   List<String> get basenameHints => switch (this) {
-        DesignSurface.guiPainter  => const ['painter'],
-        DesignSurface.guiTheme    => const ['theme', 'style'],
-        DesignSurface.guiWidget   => const [],
-        DesignSurface.guiUi       => const [],
-        DesignSurface.logic       => const [],
+        DesignSurface.guiPainter => const ['painter'],
+        DesignSurface.guiTheme   => const ['theme', 'style'],
+        DesignSurface.guiWidget ||
+        DesignSurface.guiUi ||
+        DesignSurface.logic => const [],
       };
 }
 
