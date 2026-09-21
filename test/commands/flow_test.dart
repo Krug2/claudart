@@ -44,7 +44,7 @@ MemoryFileIO _io() {
 PlannerLog _silentPlannerLog() => PlannerLog(path: '/tmp/ignored', appender: (_, __) {});
 
 PipelineExecutor _executorWithNoOutput() =>
-    PipelineExecutor(runner: ({required model, required systemPrompt, required message, required workingDir}) async => null);
+    PipelineExecutor(runner: ({required model, required systemPrompt, required message, required workingDir, bool bare = false}) async => null);
 
 void main() {
   group('runFlow — validation', () {

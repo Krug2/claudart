@@ -53,11 +53,22 @@ The reading order for a new session:
 
 Always follow this order — no exceptions:
 1. **Verify** — read the relevant files, understand current state
-2. **Test** — run safely
-3. **Confirm** — present result, wait for user confirmation
-4. **Commit** — only after confirmed
+2. **Plan** — state what you intend to do before writing code. If multiple approaches exist, surface them. If uncertain, ask.
+3. **Test** — run safely
+4. **Confirm** — present result, wait for user confirmation
+5. **Commit** — only after confirmed
 
 Never commit before testing. Never skip confirmation.
+
+---
+
+## Code discipline
+
+**Simplicity first.** claudart's FSM is formal and deliberately small — keep it that way. No features beyond what was asked. No abstractions for single-use code. No error handling for states the type system already prevents. If 20 lines would do, don't write 50.
+
+**Surgical changes.** Touch only what the task requires. Don't refactor adjacent code, improve formatting, or clean up unrelated areas. Match the existing style. If your changes orphan an import or variable, remove it — leave pre-existing dead code alone unless asked.
+
+**Verifiable goals.** For multi-step tasks, define a brief plan with a check per step before starting. Verification here means: `dart test` passes, FSM transitions remain exhaustive, self-hosting law holds.
 
 ---
 

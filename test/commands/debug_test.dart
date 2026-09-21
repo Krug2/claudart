@@ -98,7 +98,7 @@ MemoryFileIO _io({String? handoff = _handoffReadyWithScope}) {
 }
 
 PipelineExecutor _executorWithNoOutput() =>
-    PipelineExecutor(runner: ({required model, required systemPrompt, required message, required workingDir}) async => null);
+    PipelineExecutor(runner: ({required model, required systemPrompt, required message, required workingDir, bool bare = false}) async => null);
 
 void main() {
   group('runDebug — validation', () {

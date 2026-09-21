@@ -53,6 +53,7 @@ abstract final class DebugSteps {
     systemPrompt: _implementerSystem,
     buildPrompt:  _implementerPrompt,
     routes:       {},
+    bare:         true,
   );
 
   static const List<AgentStep> all = [implementer];

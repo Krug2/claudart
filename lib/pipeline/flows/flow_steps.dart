@@ -20,6 +20,10 @@
 //   User sees the plan before construct runs.
 //   Declining aborts and yields PipelineCompleted with pre-construct ctx.
 
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+
 import '../agent_model.dart';
 import '../agent_step.dart';
 import '../agents/categorization.dart';
@@ -44,7 +48,9 @@ abstract final class FlowSteps {
       'You are a dependency-ordered planner. Given a classified task, generate '
       'a structured implementation plan where each item lists what must exist '
       'before it can start. Output <PLAN>...</PLAN> with numbered items ordered '
-      'by dependency, or <QUESTION>...</QUESTION> if critical context is missing.';
+      'by dependency, or <QUESTION>...</QUESTION> if critical context is missing. '
+      'Do not propose features, files, or abstractions beyond what the task '
+      'explicitly requires. When uncertain about project structure, output QUESTION.';
 
   static const String _clarifySystem =
       'You are a context resolver. Given a question and the original user input, '
@@ -54,7 +60,9 @@ abstract final class FlowSteps {
   static const String _constructSystem =
       'You are a handoff constructor. Given an approved plan, construct a '
       'complete handoff.md document. Output only <HANDOFF>...</HANDOFF> '
-      'with these exact section headers in order:\n'
+      'with these exact section headers in order. '
+      'Use only directory paths and type names from the project index provided — '
+      'do not reference any path, directory, or type not listed there.\n'
       '## Status\nready-for-suggest\n\n'
       '## Bug\n(concise bug or goal description)\n\n'
       '## Expected Behavior\n(what should happen)\n\n'
@@ -102,9 +110,11 @@ abstract final class FlowSteps {
     buildPrompt: (PipelineContext ctx) {
       final classification = ctx[PipelineSlot.categorize] ?? '';
       final clarification  = ctx.clarification ?? '';
+      final index          = _projectIndex(ctx.projectRoot);
       return [
         'Classification:\n$classification',
         'Task:\n${ctx.bug}',
+        if (index.isNotEmpty) index,
         if (clarification.isNotEmpty) 'Additional context:\n$clarification',
       ].join('\n\n');
     },
@@ -128,6 +138,15 @@ abstract final class FlowSteps {
       RouteTag.answer:  FeedBackTo('plan'),
       RouteTag.unknown: EscalateUser('plan'),
     },
+    // If clarify produces prose without tags, treat the full output as an
+    // ANSWER and feed it back to plan rather than silently falling through.
+    postProcess: (text, ctx) {
+      if (!text.contains('<${RouteTag.answer.wireTag}>') &&
+          !text.contains('<${RouteTag.unknown.wireTag}>')) {
+        return '<${RouteTag.answer.wireTag}>$text</${RouteTag.answer.wireTag}>';
+      }
+      return text;
+    },
   );
 
   static final AgentStep construct = AgentStep(
@@ -136,8 +155,13 @@ abstract final class FlowSteps {
     model: AgentModel.sonnet,
     systemPrompt: _constructSystem,
     buildPrompt: (PipelineContext ctx) {
-      final plan = ctx[PipelineSlot.plan] ?? '';
-      return 'Approved plan:\n$plan\n\nOriginal task:\n${ctx.bug}';
+      final plan  = ctx[PipelineSlot.plan] ?? '';
+      final index = _projectIndex(ctx.projectRoot);
+      return [
+        'Approved plan:\n$plan',
+        'Original task:\n${ctx.bug}',
+        if (index.isNotEmpty) index,
+      ].join('\n\n');
     },
     routes: const {
       RouteTag.handoff: Complete(),
@@ -145,4 +169,50 @@ abstract final class FlowSteps {
   );
 
   static final List<AgentStep> all = [categorize, plan, clarify, construct];
+}
+
+// Returns a compact snapshot of the project's directory structure and known
+// enum types. Injected into plan/construct so agents cannot invent paths or
+// types that do not exist in the actual codebase.
+String _projectIndex(String projectRoot) {
+  final lines = <String>[];
+
+  // Directory tree for test/ and lib/src/
+  final scanRoots = ['test', p.join('lib', 'src')];
+  final dirs = <String>[];
+  for (final root in scanRoots) {
+    final dir = Directory(p.join(projectRoot, root));
+    if (!dir.existsSync()) continue;
+    dirs.add(root);
+    dir
+        .listSync(recursive: true)
+        .whereType<Directory>()
+        .map((d) => p.relative(d.path, from: projectRoot))
+        .forEach(dirs.add);
+  }
+  if (dirs.isNotEmpty) {
+    lines
+      ..add('Existing directories (use only these as parent paths for new files):')
+      ..addAll(dirs.map((d) => '  $d'));
+  }
+
+  // Enum type inventory
+  final enumDir = Directory(p.join(projectRoot, 'lib', 'src', 'enums'));
+  if (enumDir.existsSync()) {
+    final names = <String>[];
+    for (final file in enumDir.listSync().whereType<File>()) {
+      for (final line in file.readAsLinesSync()) {
+        final m = RegExp(r'^enum\s+(\w+)').firstMatch(line);
+        if (m != null) names.add(m.group(1)!);
+      }
+    }
+    if (names.isNotEmpty) {
+      lines
+        ..add('')
+        ..add('Known enum types (do not reference types not in this list):')
+        ..add('  ${names.join(', ')}');
+    }
+  }
+
+  return lines.join('\n');
 }

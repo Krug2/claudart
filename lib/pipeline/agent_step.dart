@@ -66,6 +66,17 @@ class AgentStep {
   /// preserves insertion order).
   final Map<RouteTag, StepRoute> routes;
 
+  /// Optional post-processor applied to the raw step output before it is
+  /// stored in the context. Receives the raw output and the pre-storage
+  /// context. Use this to merge partial outputs (e.g. applier sections) back
+  /// into a full document without sending the full document to the model.
+  final String Function(String output, PipelineContext ctx)? postProcess;
+
+  /// When true, passes `--bare` to the claude CLI subprocess. Use for steps
+  /// that must output structured text only — prevents project CLAUDE.md from
+  /// overriding the system prompt with agent-mode instructions.
+  final bool bare;
+
   const AgentStep({
     required this.id,
     required this.label,
@@ -74,6 +85,8 @@ class AgentStep {
     required this.buildPrompt,
     this.modelSelector,
     this.routes = const {},
+    this.postProcess,
+    this.bare = false,
   });
 
   /// Resolves the model the executor should invoke for this step given

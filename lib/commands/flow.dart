@@ -60,7 +60,7 @@ Future<void> runFlow({
   final workspace    = entry.workspacePath;
   final wsConfig     = WorkspaceConfig.load(workspace, io: fileIO);
   final strictMode   = wsConfig?.owner.strict ?? false;
-  final resolvedExec = executor ?? PipelineExecutor(strict: strictMode);
+  final resolvedExec = executor ?? PipelineExecutor(strict: strictMode, verbose: true);
 
   // ── Check for saved checkpoint ─────────────────────────────────────────────
 
@@ -307,13 +307,18 @@ Future<void> _writeHandoff(
   }
 
   final handoffPath = handoffPathFor(workspace);
+  final branch = detectGitContext()?.branch ?? 'unknown';
+  final date   = DateTime.now().toIso8601String().split('T').first;
+  final header = '# Agent Handoff\n\n'
+      '> Session started: $date | Branch: $branch\n\n---\n\n';
+
   stdout.write('\n  ${ansi.cyan}·${ansi.reset}  Writing handoff…');
-  fileIO.write(handoffPath, handoffContent.trim());
+  fileIO.write(handoffPath, '$header${handoffContent.trim()}');
   stdout.write(
     '\x1B[2K\r  ${ansi.green}✓${ansi.reset}  Handoff written  '
     '${ansi.dim}→${ansi.reset}  $handoffPath\n\n',
   );
-  print('  Next:  ${ansi.bold}claudart save${ansi.reset}  ${ansi.dim}→${ansi.reset}  then /debug in Zed\n');
+  print('  Next:  ${ansi.bold}claudart save${ansi.reset}  ${ansi.dim}→${ansi.reset}  then /suggest in Zed\n');
 }
 
 // ── Checkpoint I/O ────────────────────────────────────────────────────────────

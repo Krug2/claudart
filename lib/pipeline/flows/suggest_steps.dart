@@ -32,7 +32,10 @@ abstract final class SuggestSteps {
 
   static const String _reasonerSystem =
       'You are a precise technical analyst. Answer only what is asked. '
-      'Output only the requested XML sections — no prose outside the tags.';
+      'Output only the requested XML sections — no prose outside the tags. '
+      'Only reference file paths, directory structures, and type names that appear '
+      'explicitly in the findings provided. Do not invent paths, conventions, or '
+      'types from external frameworks or prior knowledge.';
 
   // ── Phase steps (run once per suggest invocation) ───────────────────────────
 
@@ -96,6 +99,7 @@ abstract final class SuggestSteps {
     systemPrompt: _reasonerSystem,
     buildPrompt:  _applierPrompt,
     routes:       const {}, // terminal
+    postProcess:  _mergeAnalysis,
   );
 
   // ── Convenience builders ────────────────────────────────────────────────────
@@ -165,7 +169,7 @@ Constraints on how the fix must be implemented.
 ''';
 
 String _plannerPrompt(PipelineContext ctx) {
-  final analysis      = ctx.reasonerOut;
+  final analysis      = _latestAnalysis(ctx);
   final feedback      = ctx[PipelineSlot.userFeedback] ?? '';
   final clarification = ctx.clarification;
   final planContext   = clarification != null
@@ -224,21 +228,65 @@ String _applierPrompt(PipelineContext ctx) {
   final changePlan = ctx[PipelineSlot.planner] != null
       ? _extractChanges(ctx[PipelineSlot.planner]!)
       : '';
-  final analysis = ctx.reasonerOut;
+  final analysis  = _latestAnalysis(ctx);
+  final targets   = _parseTargetSections(changePlan);
+  final sections  = targets.isEmpty
+      ? analysis
+      : targets
+          .map((t) => _extractSection(analysis, t))
+          .where((s) => s.isNotEmpty)
+          .join('\n\n');
 
   return '''
-Apply these changes to the analysis:
+Apply these changes:
 
 $changePlan
 
-Existing analysis:
-$analysis
+To these sections only:
 
-Output all six XML sections. Only modify what the change plan specifies.
-All other section content must be copied verbatim.
-Tags: ROOT_CAUSE, SCOPE_FILES, SCOPE_ENTRIES, SCOPE_CLASSES, MUST_NOT_TOUCH, CONSTRAINTS.
+$sections
+
+Output ONLY the sections listed above using their exact XML tags.
+Do not output any section not shown above.
 No prose outside the tags.
 ''';
+}
+
+// ── Applier helpers ───────────────────────────────────────────────────────────
+
+const _kSections = {
+  'ROOT_CAUSE', 'SCOPE_FILES', 'SCOPE_ENTRIES',
+  'SCOPE_CLASSES', 'MUST_NOT_TOUCH', 'CONSTRAINTS',
+};
+
+// Returns the latest full analysis: applier output supersedes reasoner output.
+String _latestAnalysis(PipelineContext ctx) =>
+    ctx.applierOut.isNotEmpty ? ctx.applierOut : ctx.reasonerOut;
+
+// Identifies which sections the change plan targets by scanning for tag names.
+Set<String> _parseTargetSections(String changePlan) =>
+    _kSections.where((s) => changePlan.contains(s)).toSet();
+
+// Extracts a single <TAG>...</TAG> block from an XML document.
+String _extractSection(String xml, String tag) {
+  final m = RegExp('<$tag>([\\s\\S]*?)</$tag>').firstMatch(xml);
+  return m != null ? '<$tag>${m.group(1)}</$tag>' : '';
+}
+
+// Merges the applier's partial output (changed sections only) back into the
+// full analysis document. Called as AgentStep.postProcess so the context slot
+// always holds a complete document, not a partial one.
+String _mergeAnalysis(String partial, PipelineContext ctx) {
+  var merged = _latestAnalysis(ctx);
+  for (final tag in _kSections) {
+    final updated = _extractSection(partial, tag);
+    if (updated.isEmpty) continue;
+    merged = merged.replaceFirst(
+      RegExp('<$tag>[\\s\\S]*?</$tag>'),
+      updated,
+    );
+  }
+  return merged;
 }
 
 String _extractChanges(String plannerOutput) {

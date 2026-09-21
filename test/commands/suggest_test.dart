@@ -85,7 +85,7 @@ MemoryFileIO _io({String? handoff = _handoffWithScope}) {
 /// producing nothing (e.g. claude CLI not installed/authenticated),
 /// without ever reaching the interactive review loop.
 PipelineExecutor _executorWithNoOutput() =>
-    PipelineExecutor(runner: ({required model, required systemPrompt, required message, required workingDir}) async => null);
+    PipelineExecutor(runner: ({required model, required systemPrompt, required message, required workingDir, bool bare = false}) async => null);
 
 void main() {
   group('runSuggest — validation', () {

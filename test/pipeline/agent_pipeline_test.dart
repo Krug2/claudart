@@ -88,7 +88,14 @@ void main() {
     claudartMatrix,
     PipelineFlowType.suggest.getSelector(PipelineFeature.planner),
     (sel) async {
-      final mock = MockClaudeRunner({'planner': _plannerXml});
+      final mock = MockClaudeRunner({
+        'planner': _plannerXml,
+        // Distinguishes the applier call from the planner call — both
+        // fixtures' raw text otherwise share no step-identifying substring,
+        // so a single-entry mock would return the same text for both
+        // (masking the postProcess merge this test exercises).
+        'Apply these changes': _applierXml,
+      });
       final exec = PipelineExecutor(runner: mock.runner);
       final ctx  = await exec.runFuture(
         steps: SuggestSteps.refinement(1),
@@ -100,9 +107,14 @@ void main() {
         displayTotal: 3,
       );
 
-      // Planner emitted CHANGES → GoTo(applier) → applier ran
-      expect(ctx['applier'] ?? ctx['planner'], contains('CHANGES'),
+      // Planner emitted CHANGES → GoTo(applier) → applier ran, then its
+      // output merged (via postProcess) into the full analysis document —
+      // ctx['applier'] holds the merged sections, not the applier's raw
+      // partial output.
+      expect(ctx['planner'], contains('CHANGES'),
           reason: 'planner output should contain CHANGES tag');
+      expect(ctx['applier'], contains('ROOT_CAUSE'),
+          reason: 'applier output should hold the merged analysis sections');
       expect(mock.captured.first.model, equals(AgentModel.sonnet));
     },
   );
@@ -125,6 +137,7 @@ void main() {
         required String systemPrompt,
         required String message,
         required String workingDir,
+      bool bare = false,
       }) async {
         mock.captured.add(CallRecord(model: model, systemPrompt: systemPrompt, message: message));
         if (model == AgentModel.haiku) {
@@ -167,6 +180,7 @@ void main() {
         required String systemPrompt,
         required String message,
         required String workingDir,
+      bool bare = false,
       }) async {
         step++;
         final text = step == 1 ? _plannerXml : _applierXml;
@@ -250,6 +264,7 @@ void main() {
         required String systemPrompt,
         required String message,
         required String workingDir,
+      bool bare = false,
       }) async {
         callCount++;
         final text = callCount == 1 ? planXml : constructXml;

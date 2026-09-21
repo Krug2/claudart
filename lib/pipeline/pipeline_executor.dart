@@ -40,6 +40,7 @@ typedef ClaudeRunner = Future<({String text, Usage usage})?> Function({
   required String systemPrompt,
   required String message,
   required String workingDir,
+  bool bare,
 });
 
 typedef UserPrompter     = Future<String> Function(String question);
@@ -56,14 +57,23 @@ class PipelineExecutor {
   /// escalates to the user instead of silently falling through.
   final bool strict;
 
+  /// When true, emits a dim trace line to stdout for pipeline-internal
+  /// events not otherwise visible to the user (e.g. a postProcess rewrite).
+  final bool verbose;
+
   PipelineExecutor({
     ClaudeRunner?     runner,
     UserPrompter?     prompter,
     ApprovalSelector? approvalSelector,
-    this.strict = false,
+    this.strict  = false,
+    this.verbose = false,
   })  : _runner           = runner           ?? defaultClaudeRunner,
         _prompter         = prompter         ?? _defaultPrompter,
         _approvalSelector = approvalSelector ?? _defaultApprovalSelector;
+
+  void _trace(String msg) {
+    if (verbose) stdout.writeln('  ${ansi.dim}◦ $msg${ansi.reset}');
+  }
 
   /// Runs [steps] and emits [PipelineEvent]s for each lifecycle transition.
   ///
@@ -110,6 +120,7 @@ class PipelineExecutor {
         systemPrompt: current.systemPrompt,
         message:      current.buildPrompt(ctx),
         workingDir:   ctx.projectRoot,
+        bare:         current.bare,
       );
 
       if (result == null) {
@@ -118,19 +129,27 @@ class PipelineExecutor {
         return;
       }
 
+      final rawText = result.text;
+      final stored = current.postProcess != null
+          ? current.postProcess!(rawText, ctx)
+          : rawText;
+      if (current.postProcess != null && stored != rawText) {
+        _trace('postProcess fired on "${current.id}" — output rewritten');
+      }
       ctx = ctx
           .withUsage(ctx.usage + result.usage)
-          .withSlot(current.id, result.text);
+          .withSlot(current.id, stored);
 
       yield AgentCompleted(stepId: current.id, usage: result.usage);
 
       // Find first matching tag → route. `matchedTag` is typed
       // [RouteTag] so downstream extractions read `.wireTag` once and
-      // pass the wire string to `tagOrNull`.
+      // pass the wire string to `tagOrNull`. Uses `stored` (post-processed
+      // text) so postProcess can inject tags to correct malformed output.
       RouteTag?  matchedTag;
       StepRoute? route;
       for (final entry in current.routes.entries) {
-        if (tagOrNull(result.text, entry.key.wireTag) != null) {
+        if (tagOrNull(stored, entry.key.wireTag) != null) {
           matchedTag = entry.key;
           route      = entry.value;
           break;
@@ -170,17 +189,17 @@ class PipelineExecutor {
           current = stepMap[stepId]!;
 
         case QuestionBranch(:final lookupStepId):
-          final question = tagOrNull(result.text, matchedTag!.wireTag)!;
+          final question = tagOrNull(stored, matchedTag!.wireTag)!;
           ctx     = ctx.withSlot(PipelineSlot.question, question);
           current = stepMap[lookupStepId]!;
 
         case FeedBackTo(:final stepId):
-          final answer = tagOrNull(result.text, matchedTag!.wireTag)!;
+          final answer = tagOrNull(stored, matchedTag!.wireTag)!;
           ctx     = ctx.appendClarification('Codebase lookup: $answer');
           current = stepMap[stepId]!;
 
         case EscalateUser(:final returnToStepId):
-          final unknown  = tagOrNull(result.text, matchedTag!.wireTag);
+          final unknown  = tagOrNull(stored, matchedTag!.wireTag);
           final question = ctx[PipelineSlot.question] ?? '';
           yield AgentEscalating(
             question:       question,
@@ -195,7 +214,7 @@ class PipelineExecutor {
 
         case ApprovalGate(:final planTag, :final nextStepId):
           final plan =
-              tagOrNull(result.text, planTag.wireTag) ?? result.text;
+              tagOrNull(stored, planTag.wireTag) ?? stored;
           yield PlanDraft(plan: plan);
           yield const AwaitingApproval();
 
@@ -363,6 +382,7 @@ Future<({String text, Usage usage})?> defaultClaudeRunner({
   required String systemPrompt,
   required String message,
   required String workingDir,
+  bool bare = false,
 }) async {
   // `StepDebugTrace.start()` resolves the log file via `debugLogFile()`.
   // When debug mode is off, every `trace.write*` below is a no-op.
@@ -392,6 +412,7 @@ Future<({String text, Usage usage})?> defaultClaudeRunner({
         '--model',         model.alias,
         '--system-prompt', systemPrompt,
         '--dangerously-skip-permissions',
+        if (bare) '--bare',
       ],
       workingDirectory: workingDir,
     );
