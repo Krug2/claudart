@@ -1,3 +1,28 @@
+/// Custom lint rules derived by hand from dartrix's PARADIGMS.md.
+///
+/// ## Dependency verdict
+///
+/// dartrix is intentionally absent from this package's `pubspec.yaml` — even
+/// as a dev dependency. claudart's shipped runtime (`lib/`) has zero
+/// `package:dartrix` imports; dartrix appears only in the root package's
+/// `dev_dependencies` for test-time matrix coverage (`test/matrix/`). Lint
+/// enforcement does not require a code-level link to dartrix.
+///
+/// ## Sync process
+///
+/// These rules re-derive paradigms from PARADIGMS.md prose. There is no
+/// compile-time signal when PARADIGMS.md gains a new paradigm and this file
+/// does not. The process to stay in sync:
+///
+/// 1. Propose the new paradigm as a PR against `dartrix/PARADIGMS.md`.
+/// 2. Once merged, hand-port the corresponding `DartLintRule` into this file.
+/// 3. Add it to `_ClaudartLints.getLintRules`.
+///
+/// Staying in sync is a convention, not a code dependency. Do not add dartrix
+/// as a dependency here to mechanise this — the lint rules depend only on
+/// `analyzer` and `custom_lint_builder`, and that must stay true.
+library;
+
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
