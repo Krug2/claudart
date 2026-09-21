@@ -43,6 +43,21 @@ class BareStringForEnum extends DartLintRule {
       if (literalCases.length < 2) return;
       reporter.atNode(node, _code);
     });
+
+    // Switch *expressions* (`switch (x) { 'a' => ... }`) are the same
+    // dispatch shape and can bypass the statement-only check above. But a
+    // pure string→enum translation factory (fromString-style) is also
+    // written as a switch expression with string-literal cases, and that
+    // shape is legitimate — it's the canonical, singular place a string
+    // maps to its enum, not behavior dispatch. The distinguishing signal:
+    // illegitimate dispatch has at least one case body that *does*
+    // something (a call/await), not just returns a plain value.
+    context.registry.addSwitchExpression((node) {
+      final literalCases = node.cases.where(_isStringLiteralExpressionCase);
+      if (literalCases.length < 2) return;
+      if (!node.cases.any((c) => _isActionExpression(c.expression))) return;
+      reporter.atNode(node, _code);
+    });
   }
 
   static bool _isStringLiteralCase(SwitchMember member) {
@@ -55,6 +70,18 @@ class BareStringForEnum extends DartLintRule {
     }
     return false;
   }
+
+  static bool _isStringLiteralExpressionCase(SwitchExpressionCase case_) {
+    final pattern = case_.guardedPattern.pattern;
+    return pattern is ConstantPattern && pattern.expression is StringLiteral;
+  }
+
+  static bool _isActionExpression(Expression expression) => switch (expression) {
+        MethodInvocation() => true,
+        FunctionExpressionInvocation() => true,
+        AwaitExpression() => true,
+        _ => false,
+      };
 }
 
 /// Flags a `for` loop over `SomeEnum.values` nested inside a single
