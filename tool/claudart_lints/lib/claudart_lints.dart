@@ -60,20 +60,24 @@ class BareStringForEnum extends DartLintRule {
     context.registry.addSwitchExpression((node) {
       final literalCases = node.cases.where(_isStringLiteralExpressionCase);
       if (literalCases.length < 2) return;
-      if (!node.cases.any((c) => _isActionExpression(c.expression))) return;
+      if (!node.cases.any((c) => _containsAction(c.expression))) return;
       reporter.atNode(node, _code);
     });
   }
 
   /// True when [member]'s statements contain an action (a call/await), the
-  /// same signal [_isActionExpression] checks for switch-expression cases —
+  /// same signal [_containsAction] checks for switch-expression cases —
   /// mirrored here so both switch shapes are held to one standard.
   static bool _isActionCase(SwitchMember member) =>
-      member.statements.any(_containsActionStatement);
+      member.statements.any(_containsAction);
 
-  static bool _containsActionStatement(Statement statement) {
+  /// True when an action (a call/await) appears anywhere inside [node], not
+  /// just as its top-level form — a top-level-only check misses actions
+  /// wrapped in parentheses (`(doThing())`), conditionals
+  /// (`cond ? doThing() : other`), or any other nesting.
+  static bool _containsAction(AstNode node) {
     final finder = _ActionExpressionFinder();
-    statement.accept(finder);
+    node.accept(finder);
     return finder.found;
   }
 
@@ -93,17 +97,11 @@ class BareStringForEnum extends DartLintRule {
     return pattern is ConstantPattern && pattern.expression is StringLiteral;
   }
 
-  static bool _isActionExpression(Expression expression) => switch (expression) {
-        MethodInvocation() => true,
-        FunctionExpressionInvocation() => true,
-        AwaitExpression() => true,
-        _ => false,
-      };
 }
 
 /// Finds whether a case body (a list of statements, unlike a switch
 /// expression's single `=>` expression) contains a call/await anywhere —
-/// the same "does something" signal [BareStringForEnum._isActionExpression]
+/// the same "does something" signal [BareStringForEnum._containsAction]
 /// checks for switch expressions.
 class _ActionExpressionFinder extends RecursiveAstVisitor<void> {
   bool found = false;
