@@ -1,9 +1,9 @@
 // pipeline_executor_test.dart — PipelineExecutor mechanics: postProcess and
-// bare, isolated from any real flow/suggest/debug business steps.
+// mode, isolated from any real flow/suggest/debug business steps.
 //
 // agent_pipeline_test.dart covers PipelineFlowType × PipelineFeature — the
 // business flows. This file covers the executor's own step-independent
-// contracts: postProcess rewrites what's stored and routed on, and bare
+// contracts: postProcess rewrites what's stored and routed on, and mode
 // reaches the runner. Minimal custom AgentSteps, no LLM.
 
 import 'package:claudart/pipeline/agent_model.dart';
@@ -12,6 +12,7 @@ import 'package:claudart/pipeline/pipeline_context.dart';
 import 'package:claudart/pipeline/pipeline_event.dart';
 import 'package:claudart/pipeline/pipeline_executor.dart';
 import 'package:claudart/pipeline/route_tag.dart';
+import 'package:claudart/pipeline/step_mode.dart';
 import 'package:claudart/pipeline/step_route.dart';
 import 'package:claudart/pipeline/usage.dart';
 import 'package:test/test.dart';
@@ -43,7 +44,7 @@ void main() {
           required systemPrompt,
           required message,
           required workingDir,
-          bool bare = false,
+          StepMode mode = StepMode.project,
         }) async =>
             (text: 'raw output', usage: const Usage(input: 1, output: 1, cacheRead: 0, cost: 0)),
       );
@@ -87,7 +88,7 @@ void main() {
           required systemPrompt,
           required message,
           required workingDir,
-          bool bare = false,
+          StepMode mode = StepMode.project,
         }) async =>
             (text: 'no tags here', usage: const Usage(input: 1, output: 1, cacheRead: 0, cost: 0)),
       );
@@ -122,7 +123,7 @@ void main() {
           required systemPrompt,
           required message,
           required workingDir,
-          bool bare = false,
+          StepMode mode = StepMode.project,
         }) async =>
             (text: 'unchanged', usage: const Usage(input: 1, output: 1, cacheRead: 0, cost: 0)),
       );
@@ -138,16 +139,16 @@ void main() {
     });
   });
 
-  group('PipelineExecutor — bare', () {
-    test('AgentStep.bare reaches the runner call', () async {
-      bool? capturedBare;
+  group('PipelineExecutor — mode', () {
+    test('AgentStep.mode reaches the runner call', () async {
+      StepMode? capturedMode;
       final step = AgentStep(
         id: 'a',
         label: 'Step A',
         model: AgentModel.haiku,
         systemPrompt: 'sys',
         buildPrompt: (_) => 'msg',
-        bare: true,
+        mode: StepMode.bare,
       );
 
       final exec = PipelineExecutor(
@@ -156,20 +157,20 @@ void main() {
           required systemPrompt,
           required message,
           required workingDir,
-          bool bare = false,
+          StepMode mode = StepMode.project,
         }) async {
-          capturedBare = bare;
+          capturedMode = mode;
           return (text: '', usage: const Usage(input: 1, output: 1, cacheRead: 0, cost: 0));
         },
       );
 
       await exec.runFuture(steps: [step], ctx: _ctx(), displayStep: 1, displayTotal: 1);
 
-      expect(capturedBare, isTrue);
+      expect(capturedMode, equals(StepMode.bare));
     });
 
-    test('AgentStep.bare defaults to false', () async {
-      bool? capturedBare;
+    test('AgentStep.mode defaults to project', () async {
+      StepMode? capturedMode;
       final step = AgentStep(
         id: 'a',
         label: 'Step A',
@@ -184,16 +185,16 @@ void main() {
           required systemPrompt,
           required message,
           required workingDir,
-          bool bare = false,
+          StepMode mode = StepMode.project,
         }) async {
-          capturedBare = bare;
+          capturedMode = mode;
           return (text: '', usage: const Usage(input: 1, output: 1, cacheRead: 0, cost: 0));
         },
       );
 
       await exec.runFuture(steps: [step], ctx: _ctx(), displayStep: 1, displayTotal: 1);
 
-      expect(capturedBare, isFalse);
+      expect(capturedMode, equals(StepMode.project));
     });
   });
 }

@@ -29,6 +29,7 @@ import 'event_response_map.dart';
 import 'pipeline_context.dart';
 import 'pipeline_event.dart';
 import 'route_tag.dart';
+import 'step_mode.dart';
 import 'step_route.dart';
 import 'usage.dart';
 import 'xml_tags.dart';
@@ -40,7 +41,7 @@ typedef ClaudeRunner = Future<({String text, Usage usage})?> Function({
   required String systemPrompt,
   required String message,
   required String workingDir,
-  bool bare,
+  StepMode mode,
 });
 
 typedef UserPrompter     = Future<String> Function(String question);
@@ -120,7 +121,7 @@ class PipelineExecutor {
         systemPrompt: current.systemPrompt,
         message:      current.buildPrompt(ctx),
         workingDir:   ctx.projectRoot,
-        bare:         current.bare,
+        mode:         current.mode,
       );
 
       if (result == null) {
@@ -399,7 +400,7 @@ Future<({String text, Usage usage})?> defaultClaudeRunner({
   required String systemPrompt,
   required String message,
   required String workingDir,
-  bool bare = false,
+  StepMode mode = StepMode.project,
 }) async {
   // `StepDebugTrace.start()` resolves the log file via `debugLogFile()`.
   // When debug mode is off, every `trace.write*` below is a no-op.
@@ -429,7 +430,7 @@ Future<({String text, Usage usage})?> defaultClaudeRunner({
         '--model',         model.alias,
         '--system-prompt', systemPrompt,
         '--dangerously-skip-permissions',
-        if (bare) '--bare',
+        if (mode == StepMode.bare) '--bare',
       ],
       workingDirectory: workingDir,
     );

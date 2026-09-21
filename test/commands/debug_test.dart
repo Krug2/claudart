@@ -3,6 +3,7 @@ import 'package:claudart/commands/debug.dart';
 import 'package:claudart/registry.dart';
 import 'package:claudart/paths.dart';
 import 'package:claudart/pipeline/pipeline_executor.dart';
+import 'package:claudart/pipeline/step_mode.dart';
 import '../helpers/mocks.dart';
 
 // debug_test.dart — validation-path coverage for runDebug.
@@ -98,7 +99,7 @@ MemoryFileIO _io({String? handoff = _handoffReadyWithScope}) {
 }
 
 PipelineExecutor _executorWithNoOutput() =>
-    PipelineExecutor(runner: ({required model, required systemPrompt, required message, required workingDir, bool bare = false}) async => null);
+    PipelineExecutor(runner: ({required model, required systemPrompt, required message, required workingDir, StepMode mode = StepMode.project}) async => null);
 
 void main() {
   group('runDebug — validation', () {

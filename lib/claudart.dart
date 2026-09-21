@@ -11,6 +11,7 @@ export 'pipeline/agents/confirmation.dart';
 export 'pipeline/step_status.dart';
 export 'pipeline/pipeline_event.dart';
 export 'pipeline/agent_step.dart';
+export 'pipeline/step_mode.dart';
 export 'pipeline/flows/suggest_steps.dart';
 export 'pipeline/flows/debug_steps.dart';
 export 'pipeline/flows/flow_steps.dart';

@@ -9,12 +9,12 @@ class CallRecord {
   final AgentModel model;
   final String systemPrompt;
   final String message;
-  final bool bare;
+  final StepMode mode;
   const CallRecord({
     required this.model,
     required this.systemPrompt,
     required this.message,
-    this.bare = false,
+    this.mode = StepMode.project,
   });
 }
 
@@ -33,13 +33,13 @@ class MockClaudeRunner {
         required String systemPrompt,
         required String message,
         required String workingDir,
-        bool bare = false,
+        StepMode mode = StepMode.project,
       }) async {
         captured.add(CallRecord(
           model:        model,
           systemPrompt: systemPrompt,
           message:      message,
-          bare:         bare,
+          mode:         mode,
         ));
         // Find first response whose key appears in the message; fallback to first entry.
         final text = responses.entries
