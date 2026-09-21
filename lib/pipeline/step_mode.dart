@@ -6,8 +6,10 @@ enum StepMode {
   project,
 
   /// Bare: passes `--bare` to the claude CLI. No CLAUDE.md, requires
-  /// ANTHROPIC_API_KEY. A step in a normal OAuth session will get
-  /// "Not logged in" with this variant — verified live. No built-in
-  /// pipeline step uses this; only tests exercising the mechanism do.
+  /// `ANTHROPIC_API_KEY` or an `apiKeyHelper` — OAuth and keychain
+  /// credentials are never read. A step in a normal OAuth session will
+  /// get "Not logged in" with this variant — verified live. No
+  /// built-in pipeline step uses this; only tests exercising the
+  /// mechanism do.
   bare,
 }

@@ -153,5 +153,17 @@ void main() {
       final prompt = promptFor(tempRoot.path);
       expect(prompt, isNot(contains('Known enum types')));
     });
+
+    test('lib/src/enums/ itself unreadable does not abort the whole scan — '
+        'the directory listing call, not just the per-file reads, must be '
+        'guarded', () {
+      final enumsDir = Directory('${tempRoot.path}/lib/src/enums')..createSync(recursive: true);
+      Process.runSync('chmod', ['000', enumsDir.path]);
+      addTearDown(() => Process.runSync('chmod', ['755', enumsDir.path]));
+
+      expect(() => promptFor(tempRoot.path), returnsNormally);
+      final prompt = promptFor(tempRoot.path);
+      expect(prompt, isNot(contains('Known enum types')));
+    }, skip: Platform.isWindows ? 'chmod is POSIX-only' : false);
   });
 }

@@ -252,7 +252,13 @@ String _projectIndex(String projectRoot) {
   final enumDir = Directory(p.join(projectRoot, 'lib', 'src', 'enums'));
   if (enumDir.existsSync()) {
     final names = <String>[];
-    for (final file in enumDir.listSync(followLinks: false).whereType<File>()) {
+    List<File> enumFiles;
+    try {
+      enumFiles = enumDir.listSync(followLinks: false).whereType<File>().toList();
+    } on FileSystemException {
+      enumFiles = const [];
+    }
+    for (final file in enumFiles) {
       try {
         for (final line in file.readAsLinesSync()) {
           final m = RegExp(r'^\s*enum\s+(\w+)').firstMatch(line);
