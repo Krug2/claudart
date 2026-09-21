@@ -53,7 +53,13 @@ abstract final class DebugSteps {
     systemPrompt: _implementerSystem,
     buildPrompt:  _implementerPrompt,
     routes:       {},
-    bare:         true,
+    // NOT bare: --bare strictly requires ANTHROPIC_API_KEY/apiKeyHelper and
+    // never reads OAuth or keychain (verified live — a normal OAuth-logged-in
+    // session gets "Not logged in · Please run /login" under --bare). That's
+    // the standard auth path for this whole pipeline (see defaultClaudeRunner's
+    // session-isolation comment in pipeline_executor.dart), so bare would break
+    // claudart debug for the common case, not just guard against CLAUDE.md
+    // override. Revisit if/when this pipeline supports API-key-based auth.
   );
 
   static const List<AgentStep> all = [implementer];
