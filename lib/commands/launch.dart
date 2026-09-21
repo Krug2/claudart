@@ -200,7 +200,11 @@ List<String> _buildProjectItems({
   for (final e in entries) {
     final isCurrent = e == currentEntry;
     final locked = isLocked(e.workspacePath, io: fileIO);
-    final linked = fileIO.linkExists(p.join(e.projectRoot, '.claude'));
+    // .claude is either a symlink (the normal case) or a real directory
+    // when link.dart couldn't symlink it — both mean "linked". Same fix
+    // as link.dart/kill.dart's own symlink-only checks on this branch.
+    final claudePath = p.join(e.projectRoot, '.claude');
+    final linked = fileIO.linkExists(claudePath) || fileIO.dirExists(claudePath);
 
     final dot = locked
         ? ansi.c(ansi.yellow, '⚠')

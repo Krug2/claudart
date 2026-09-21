@@ -94,6 +94,7 @@ Never _throwExit(int code) => throw _ExitException(code);
 MemoryFileIO _io({
   bool withHandoff = false,
   bool withLink = false,
+  bool withRealDir = false,
   bool withLock = false,
   bool sensitivityMode = false,
 }) {
@@ -110,6 +111,7 @@ MemoryFileIO _io({
       if (withHandoff) handoffPathFor(_workspace): _activeHandoff,
     },
     links: {if (withLink) _claudeLink},
+    dirs: {if (withRealDir) _claudeLink},
   );
   if (withLock) {
     io.write(p.join(_workspace, 'workspace.lock'), 'setup');
@@ -150,6 +152,28 @@ void main() {
         exitFn: _throwExit,
       );
       expect(pickCall, equals(2));
+    });
+
+    test('a real .claude/ directory (symlink was never possible) shows as '
+        'linked, not unlinked', () async {
+      final io = _io(withHandoff: true, withLink: false, withRealDir: true);
+      List<String>? capturedItems;
+      var pickCall = 0;
+      await runLauncher(
+        io: io,
+        projectRootOverride: null,
+        pickFn: (items) {
+          capturedItems ??= items;
+          pickCall++;
+          return pickCall == 1 ? 0 : ActiveMenu.back;
+        },
+        exitFn: _throwExit,
+      );
+      // Same colour/dot convention _buildProjectItems uses: green ● for
+      // linked, dim ○ for not. A real directory must render as linked.
+      final projectRow = capturedItems!.firstWhere((i) => i.contains('my-app'));
+      expect(projectRow, contains('●'));
+      expect(projectRow, isNot(contains('○')));
     });
 
     test('highlights current project when cwd matches', () async {
