@@ -8,4 +8,4 @@
 /// ∀ feature f added to claudart →
 ///   claudartVersion is bumped ∧ zedup's minClaudartVersion is updated
 ///   → dart pub get detects the mismatch before any binary is run.
-const claudartVersion = '1.0.0';
+const claudartVersion = '2.0.0';
