@@ -188,11 +188,19 @@ String _projectIndex(String projectRoot) {
     final dir = Directory(p.join(projectRoot, root));
     if (!dir.existsSync()) continue;
     dirs.add(root);
-    dir
-        .listSync(recursive: true, followLinks: false)
-        .whereType<Directory>()
-        .map((d) => p.relative(d.path, from: projectRoot))
-        .forEach(dirs.add);
+    try {
+      dir
+          .listSync(recursive: true, followLinks: false)
+          .whereType<Directory>()
+          .map((d) => p.relative(d.path, from: projectRoot))
+          .forEach(dirs.add);
+    } on FileSystemException {
+      // Best-effort, same as the enum scan below — an unreadable
+      // subdirectory (permissions, a transient FS race) shouldn't crash
+      // flow planning. $root itself is still listed; its unreachable
+      // children just aren't.
+      continue;
+    }
   }
   if (dirs.isNotEmpty) {
     dirs.sort();
