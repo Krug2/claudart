@@ -85,7 +85,11 @@ _Nothing yet._
 ''';
 
 /// Builds a registry pre-seeded with one entry for _projectRoot → _workspace.
-MemoryFileIO _io({bool withHandoff = true, bool withLink = true}) {
+MemoryFileIO _io({
+  bool withHandoff = true,
+  bool withLink = true,
+  bool withRealDir = false,
+}) {
   const entry = RegistryEntry(
     name: 'my-app',
     projectRoot: _projectRoot,
@@ -99,6 +103,7 @@ MemoryFileIO _io({bool withHandoff = true, bool withLink = true}) {
       if (withHandoff) handoffPathFor(_workspace): _activeHandoff,
     },
     links: {if (withLink) _claudeLink},
+    dirs: {if (withRealDir) _claudeLink},
   );
   // Write registry so Registry.load() finds it.
   registry.save(io: io);
@@ -156,6 +161,34 @@ void main() {
       final entry = registry.findByName('my-app')!;
       final today = DateTime.now().toIso8601String().substring(0, 10);
       expect(entry.lastSession, equals(today));
+    });
+
+    test('a real .claude/ directory (symlink was never possible) is not '
+        'reported as "no active session"', () async {
+      final io = _io(withLink: false, withRealDir: true);
+      final confirmQuestions = <String>[];
+      await runKill(
+        io: io,
+        projectRootOverride: _projectRoot,
+        confirmFn: (q) {
+          confirmQuestions.add(q);
+          return true;
+        },
+        exitFn: (code) => throw _ExitException(code),
+      );
+      // "Kill anyway and archive the handoff?" is only asked when Step 4's
+      // "no active session" branch is taken — it must not be, since a real
+      // directory at .claude counts as an active session.
+      expect(
+        confirmQuestions,
+        isNot(contains('Kill anyway and archive the handoff?')),
+      );
+      // Archive still happens — killing a real-directory workspace works
+      // the same as killing a symlinked one.
+      final archived = io.files.keys
+          .where((k) => k.startsWith(p.join(_workspace, 'archive')))
+          .toList();
+      expect(archived, hasLength(1));
     });
   });
 

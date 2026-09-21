@@ -33,10 +33,28 @@ Read all of the following before doing anything else:
 Check the handoff for a `## Project` section and also read:
 - `/Users/aksana.buster/dev/dev_tools/claude/claudart/knowledge/projects/<project-name>.md`
 
+Compact paradigm grounding — dartrix's `consider` posture (`PARADIGMS.md`):
+"Always on, even explore. Compact grounding. Never restructures, never
+gates." If this project's `pubspec.yaml` depends on dartrix, read its
+`PARADIGMS.md` once, briefly. This informs how you read and reason about
+the code you're about to explore (enum-spine architecture, matrix-driven
+testing, etc.) — it does not filter which files you can look at, does not
+require a fix to conform to it, and does not block exploration if dartrix
+isn't a dependency here. Grounding, not a gate.
+
 Status routing — check `## Status` in the handoff:
 - `needs-suggest`: read **Debug Progress** first — that is your starting point, not a blank slate.
 - `suggest-needed` or `suggest-investigating`: proceed to Step 2.
-- `ready-for-debug` or `debug-in-progress`: confirm with user before re-running suggest.
+- `ready-for-debug` or `debug-in-progress`: ask "This looks ready for `/debug` — re-run `/suggest` and overwrite the existing KT anyway?"
+
+  When you present something for the user to confirm before proceeding, after they reply, classify their reply into exactly one of: confirm, modify, clarify, reject. Emit your classification as a single value inside the tag, not the list of options — for example, if the reply confirms, emit exactly <CONFIRMATION>confirm</CONFIRMATION>. Do not guess — if the reply does not clearly confirm, request a change, or reject, emit <CONFIRMATION>clarify</CONFIRMATION> and ask a follow-up question instead of acting.
+
+  - `confirm` → proceed to Step 2 (re-explore).
+  - `modify` or `reject` → stop. Tell the user their existing KT is unchanged.
+  - `clarify` → ask a follow-up question. Do not proceed.
+
+  This gate has no single follow-up CLI command — confirming means continuing
+  within this same skill, not dispatching a separate `claudart <verb>`.
 
 ---
 

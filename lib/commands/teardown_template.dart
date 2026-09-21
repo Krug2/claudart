@@ -1,3 +1,5 @@
+import '../pipeline/agents/confirmation.dart';
+
 String teardownCommandTemplate(String workspacePath, String projectName) => '''
 ---
 description: Close session and update knowledge — $projectName
@@ -13,7 +15,12 @@ You are running **SESSION TEARDOWN**.
 ## Step 1 — Confirm resolution
 
 Ask: "Is the bug confirmed resolved?"
-If no: "Come back when resolved. Use `/debug` or `/suggest` to continue."
+
+${confirmationProtocolInstructions()}
+
+- `confirm` → proceed to Step 2.
+- `modify` or `reject` → "Come back when resolved. Use `/debug` or `/suggest` to continue." Do not proceed.
+- `clarify` → ask a follow-up question. Do not proceed.
 
 ---
 

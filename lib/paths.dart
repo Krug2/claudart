@@ -9,6 +9,7 @@ const String skillsFileName           = 'skills.md';
 const String archivesDirName          = 'archive';
 const String archiveIndexFileName     = 'index.json';
 const String flowCheckpointFileName   = 'flow_checkpoint.json';
+const String pendingConfirmationFileName = 'pending_confirmation.json';
 
 /// Extracts the workspace directory from `claudart status` output.
 /// Parses the `Handoff  : <path>/handoff.md` line and returns the parent dir.
@@ -48,6 +49,8 @@ String workspaceFor(String projectName) => p.join(workspacesRoot, projectName);
 
 String handoffPathFor(String ws) => p.join(ws, 'handoff.md');
 String skillsPathFor(String ws) => p.join(ws, 'skills.md');
+String pendingConfirmationPathFor(String ws) =>
+    p.join(ws, pendingConfirmationFileName);
 String archiveDirFor(String ws) => p.join(ws, 'archive');
 String configPathFor(String ws) => p.join(ws, 'config.json');
 String knowledgeDirFor(String ws) => p.join(ws, 'knowledge');

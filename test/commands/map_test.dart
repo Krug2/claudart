@@ -1,9 +1,21 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:test/test.dart';
 import 'package:path/path.dart' as p;
 import 'package:claudart/commands/map_cmd.dart';
 import 'package:claudart/paths.dart';
 import '../helpers/mocks.dart';
+
+String _capturePrinted(void Function() action) {
+  final output = <String>[];
+  runZoned(
+    action,
+    zoneSpecification: ZoneSpecification(
+      print: (_, __, ___, line) => output.add(line),
+    ),
+  );
+  return output.join('\n');
+}
 
 void main() {
   group('runMap', () {
@@ -79,6 +91,24 @@ void main() {
       expect(io.fileExists(tokenMapMdPath), isTrue);
       final globalMdPath = p.join(claudeDir, 'token_map.md');
       expect(io.fileExists(globalMdPath), isFalse);
+    });
+
+    test('console-printed "active" count agrees with the markdown body — '
+        'both exclude deprecated tokens', () {
+      final tokenData = {
+        'Bloc:A': {'r': 'VolumeBloc'},
+        'Class:A': {'r': 'Helper', 'deprecated': true},
+      };
+      io.write(tokenMapPath, jsonEncode(tokenData));
+
+      final printed = _capturePrinted(() => runMap(io: io, workspacePath: workspace));
+      final markdown = io.read(tokenMapMdPath);
+
+      // The markdown body's "Total" line already computes this correctly
+      // (see the first test in this file, "2 active" with 1 deprecated of
+      // 3). The console summary printed to the user must not disagree.
+      expect(markdown, contains('2 tokens (1 active)'));
+      expect(printed, contains('2 tokens (1 active)'));
     });
   });
 }

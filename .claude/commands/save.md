@@ -31,8 +31,11 @@ Attempted  : <what was attempted — or "nothing yet">
 Ask: "Does this reflect the current confirmed state? Any corrections before
 saving?"
 
-- If corrections: apply them to `/Users/aksana.buster/dev/dev_tools/claude/claudart/handoff.md` first, then proceed.
-- If confirmed as-is: proceed immediately.
+When you present something for the user to confirm before proceeding, after they reply, classify their reply into exactly one of: confirm, modify, clarify, reject. Emit your classification as a single value inside the tag, not the list of options — for example, if the reply confirms, emit exactly <CONFIRMATION>confirm</CONFIRMATION>. Do not guess — if the reply does not clearly confirm, request a change, or reject, emit <CONFIRMATION>clarify</CONFIRMATION> and ask a follow-up question instead of acting.
+- `confirm` → proceed immediately to Step 3.
+- `modify` → apply the correction to `/Users/aksana.buster/dev/dev_tools/claude/claudart/handoff.md` first, then proceed to Step 3.
+- `clarify` → ask a follow-up question. Do not proceed to Step 3.
+- `reject` → stop. Do not run `claudart save`.
 
 ---
 

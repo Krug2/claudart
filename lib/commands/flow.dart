@@ -12,6 +12,7 @@ import 'dart:io';
 import '../file_io.dart';
 import '../git_utils.dart';
 import '../logging/planner_log.dart';
+import '../md_io.dart' show prompt;
 import '../paths.dart';
 import '../pipeline/agents/categorization.dart';
 import '../pipeline/flows/flow_steps.dart';
@@ -32,10 +33,14 @@ Future<void> runFlow({
   Never Function(int code)? exitFn,
   PipelineExecutor? executor,
   PlannerLog? plannerLog,
+  String? Function(String question, {bool optional})? promptFn,
+  int Function(List<String> items)? pickFn,
 }) async {
-  final fileIO = io   ?? const RealFileIO();
-  final exit_  = exitFn ?? exit;
+  final fileIO  = io       ?? const RealFileIO();
+  final exit_   = exitFn   ?? exit;
   final planner = plannerLog ?? PlannerLog();
+  final prompt_ = promptFn ?? prompt;
+  final pick_   = pickFn   ?? arrowMenu;
 
   // ── Locate project ─────────────────────────────────────────────────────────
 
@@ -76,7 +81,7 @@ Future<void> runFlow({
         print('');
       }
 
-      final resumeChoice = arrowMenu([
+      final resumeChoice = pick_([
         'approve saved plan',
         'refine  ${ansi.dim}(add feedback · re-plan)${ansi.reset}',
         'exit  ${ansi.dim}(keep checkpoint · resume later)${ansi.reset}',
@@ -103,8 +108,7 @@ Future<void> runFlow({
       }
 
       // refine: collect feedback, re-run phases 2+3 with saved context
-      stdout.write('\n  Refinement: ');
-      final feedback = stdin.readLineSync()?.trim() ?? '';
+      final feedback = prompt_('Refinement:', optional: true)?.trim() ?? '';
       var ctx = feedback.isNotEmpty
           ? savedCtx.appendClarification('Refinement: $feedback')
           : savedCtx;
@@ -132,9 +136,8 @@ Future<void> runFlow({
     '  dependency-ordered plan, and construct the handoff automatically.\n'
     '  ${ansi.dim}Type your task description and press enter.${ansi.reset}\n',
   );
-  stdout.write('  → ');
-  final prompt = stdin.readLineSync()?.trim() ?? '';
-  if (prompt.isEmpty) {
+  final taskPrompt = prompt_('  →', optional: true)?.trim() ?? '';
+  if (taskPrompt.isEmpty) {
     print('\n  No prompt entered. Aborted.\n');
     exit_(0);
   }
@@ -143,7 +146,7 @@ Future<void> runFlow({
 
   var ctx = PipelineContext(
     projectRoot: projectRoot,
-    bug:         prompt,
+    bug:         taskPrompt,
     expected:    '',
     files:       [],
   );

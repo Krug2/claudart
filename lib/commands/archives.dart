@@ -71,11 +71,12 @@ Future<void> runArchives({
 
   switch (action) {
     case 0:
-      _resume(fileIO, workspace, selected);
-      print(
-        '\n${ansi.green}✓${ansi.reset}  Handoff restored from ${ansi.dim}${selected.handoffFile}${ansi.reset}\n'
-        '  Next: open /suggest or /debug to continue.\n',
-      );
+      if (_resume(fileIO, workspace, selected)) {
+        print(
+          '\n${ansi.green}✓${ansi.reset}  Handoff restored from ${ansi.dim}${selected.handoffFile}${ansi.reset}\n'
+          '  Next: open /suggest or /debug to continue.\n',
+        );
+      }
     case 1:
       _view(fileIO, workspace, selected);
     case _:
@@ -97,14 +98,18 @@ String _formatEntry(ArchiveEntry e) {
   return '$badge  $date  $branch  $desc';
 }
 
-void _resume(FileIO fileIO, String workspace, ArchiveEntry e) {
+/// Restores the archived handoff snapshot to the active handoff path.
+/// Returns false (and prints an error) when the snapshot file is missing —
+/// callers must not report success in that case.
+bool _resume(FileIO fileIO, String workspace, ArchiveEntry e) {
   final src  = p.join(archiveDirFor(workspace), e.handoffFile);
   final dest = handoffPathFor(workspace);
   if (!fileIO.fileExists(src)) {
     print('${ansi.red}✗${ansi.reset}  Snapshot file not found: $src');
-    return;
+    return false;
   }
   fileIO.write(dest, fileIO.read(src));
+  return true;
 }
 
 void _view(FileIO fileIO, String workspace, ArchiveEntry e) {

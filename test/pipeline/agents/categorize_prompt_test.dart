@@ -72,19 +72,19 @@ void main() {
   group('buildCategorizePrompt is derived from the enum taxonomy', () {
     final prompt = buildCategorizePrompt();
 
-    test('contains every tag\'s wire-format name', () {
-      for (final tag in CategorizeTag.values) {
+    for (final tag in CategorizeTag.values) {
+      test('contains ${tag.wireTag}\'s wire-format name', () {
         expect(
           prompt,
           contains('<${tag.wireTag}>'),
           reason: 'missing tag <${tag.wireTag}> in prompt',
         );
-      }
-    });
+      });
+    }
 
-    test('contains every allowed value across every tag', () {
-      for (final tag in CategorizeTag.values) {
-        for (final value in tag.allowedValues) {
+    for (final tag in CategorizeTag.values) {
+      for (final value in tag.allowedValues) {
+        test('contains ${tag.wireTag} allowed value "$value"', () {
           expect(
             prompt,
             contains(value),
@@ -92,9 +92,9 @@ void main() {
                 '${tag.wireTag} value "$value" missing from prompt — '
                 'prompt/parser would drift if LLM emitted it',
           );
-        }
+        });
       }
-    });
+    }
 
     test('is non-empty + carries the schema instruction', () {
       expect(prompt, isNotEmpty);
@@ -105,19 +105,19 @@ void main() {
       expect(prompt, contains('XML'));
     });
 
-    test('every tag has a matching open + close in the schema', () {
-      // Prevents the LLM mirroring a half-tag schema (`<TAG>:` with no
-      // `</TAG>`). The parser requires the closing tag; the prompt
-      // must demonstrate it.
-      for (final tag in CategorizeTag.values) {
+    for (final tag in CategorizeTag.values) {
+      test('${tag.wireTag} has a matching open + close in the schema', () {
+        // Prevents the LLM mirroring a half-tag schema (`<TAG>:` with no
+        // `</TAG>`). The parser requires the closing tag; the prompt
+        // must demonstrate it.
         expect(prompt, contains('<${tag.wireTag}>'));
         expect(
           prompt,
           contains('</${tag.wireTag}>'),
           reason: 'closing </${tag.wireTag}> missing from schema',
         );
-      }
-    });
+      });
+    }
 
     test('tag count in the prompt tracks CategorizeTag.values.length', () {
       // The user-facing instruction "Output only the N XML tags" must

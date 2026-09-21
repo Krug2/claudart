@@ -7,6 +7,7 @@ export 'paths.dart' show handoffFileName, skillsFileName, archivesDirName, archi
 export 'md_io.dart' show readSection, readStatus, updateSection, updateStatus, parseScopeFiles;
 export 'pipeline/agent_model.dart';
 export 'pipeline/agent_flow.dart';
+export 'pipeline/agents/confirmation.dart';
 export 'pipeline/step_status.dart';
 export 'pipeline/pipeline_event.dart';
 export 'pipeline/agent_step.dart';
@@ -23,5 +24,6 @@ export 'pipeline/usage.dart';
 export 'pipeline/xml_tags.dart';
 export 'session/archive_entry.dart';
 export 'session/session_state.dart';
+export 'session/pending_confirmation.dart';
 export 'workspace/workspace_index.dart';
 export 'version.dart';

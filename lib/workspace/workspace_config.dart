@@ -37,7 +37,6 @@ enum WorkspaceRole {
 
   static WorkspaceRole fromString(String s) => switch (s) {
         'maintainer' => maintainer,
-        'contributor' => contributor,
         _ => contributor,
       };
 

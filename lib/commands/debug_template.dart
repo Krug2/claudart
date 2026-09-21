@@ -72,15 +72,47 @@ Cross-reference against generic practices in Step 1 — the fix must not violate
 
 ---
 
-## Step 5 — Test
+## Step 5 — Self-check against enforced paradigms
 
-1. Check if an existing test covers this regression
-2. If not, write one targeted test for the specific broken behaviour
-3. Do not rewrite or reorganise existing tests
+Per dartrix's `PARADIGMS.md` (`testing` dimension) — dartrix owns this law,
+claudart applies it. Run:
+
+```
+dart run custom_lint --format=json
+```
+
+Filter the results to only the files changed in Step 4 — ignore anything
+reported against a file you did not touch. That is pre-existing debt, not
+something this session introduced; do not fix it and do not let it block you.
+
+For every hit against a file you changed: resolve it before Step 6. This is
+the non-invasive check — it enforces paradigms on the code you introduced
+without reaching into the rest of the workspace.
 
 ---
 
-## Step 6 — Hand back to suggest
+## Step 6 — Test
+
+Per dartrix's `PARADIGMS.md` (`testing` dimension: "a new test is placed by
+triage, not by default"). Triage down to the right test group before
+writing anything — do not default to a new file or a new test just because
+you found a gap:
+
+1. For each file changed in Step 4 (`lib/foo/bar.dart`), the mirrored test
+   file is `test/foo/bar_test.dart`. Read it first if it exists.
+2. Search its `group()`s for one already covering this feature/behavior —
+   match by what the group actually tests, not just by file presence.
+3. Match found → add the new test inside that group, next to the tests it
+   already contains.
+4. File exists, no matching group → add a new `group()` within that same
+   file. Still not a new file.
+5. Only create a new test file when the mirrored file genuinely does not
+   exist yet.
+6. Do not rewrite or reorganise existing tests or groups to make one "fit."
+
+---
+
+## Step 7 — Hand back to suggest
 
 If you hit something outside scope:
 

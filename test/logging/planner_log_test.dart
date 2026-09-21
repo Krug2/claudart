@@ -14,16 +14,17 @@ import 'package:test/test.dart';
 void main() {
   group('PlannerLog.tallySurfaces is exhaustive over DesignSurface', () {
     final log = PlannerLog(path: '/tmp/ignored', appender: (_, __) {});
-    test('every variant key is present even with empty input', () {
-      final tally = log.tallySurfaces(const []);
-      for (final v in DesignSurface.values) {
-        expect(tally.containsKey(v), isTrue, reason: '${v.name} missing');
-      }
-    });
 
-    for (final v in DesignSurface.values) {
-      test('${v.name} counts the exemplar path', () {
-        final exemplar = switch (v) {
+    for (final surface in DesignSurface.values) {
+      test('${surface.name} key is present even with empty input', () {
+        final tally = log.tallySurfaces(const []);
+        expect(tally.containsKey(surface), isTrue);
+      });
+    }
+
+    for (final surface in DesignSurface.values) {
+      test('${surface.name} counts the exemplar path', () {
+        final exemplar = switch (surface) {
           DesignSurface.guiWidget  => 'lib/widgets/a.dart',
           DesignSurface.guiUi      => 'lib/ui/a.dart',
           DesignSurface.guiPainter => 'lib/painters/a.dart',
@@ -31,7 +32,7 @@ void main() {
           DesignSurface.logic      => 'lib/services/a.dart',
         };
         final tally = log.tallySurfaces([exemplar]);
-        expect(tally[v], equals(1));
+        expect(tally[surface], equals(1));
       });
     }
   });

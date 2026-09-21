@@ -1,6 +1,9 @@
 include: package:lints/recommended.yaml
 
 analyzer:
+  plugins:
+    - custom_lint
+
   language:
     strict-casts: true
     strict-inference: true
@@ -11,6 +14,19 @@ analyzer:
     missing_enum_constant_in_switch: error
     # Treat dead code as a warning — unused enum branches are a smell
     dead_code: warning
+    # Bare-string switches — see custom_lint block below for the rule itself
+    bare_string_for_enum: error
+    # Enum-values loop inside a single test() — see custom_lint block below
+    enum_values_loop_in_single_test: error
+    # Repeated identical switch-expression bodies not grouped with || —
+    # see custom_lint block below
+    ungrouped_identical_switch_cases: error
+
+custom_lint:
+  rules:
+    - bare_string_for_enum
+    - enum_values_loop_in_single_test
+    - ungrouped_identical_switch_cases
 
 linter:
   rules:
@@ -19,11 +35,9 @@ linter:
     prefer_void_to_null: true
 
     # --- Enum-first / no bare strings ---
-    # NOTE: Dart's built-in lints cannot enforce "use an enum instead of a
-    # string literal". Architectural rule is documented in code.md.
-    # TODO: add custom_lint rule (bare_string_for_enum) in a future session.
-    # In the meantime: exhaustive switch on enums is enforced via
-    # missing_enum_constant_in_switch above.
+    # Enforced by the custom_lint plugin (tool/claudart_lints) — see
+    # analyzer.plugins and custom_lint above. Exhaustive switch on enums,
+    # once one exists, is separately enforced by missing_enum_constant_in_switch.
 
     # --- Immutability ---
     prefer_final_fields: true

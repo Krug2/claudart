@@ -12,7 +12,12 @@ You are running **SESSION TEARDOWN**.
 ## Step 1 — Confirm resolution
 
 Ask: "Is the bug confirmed resolved?"
-If no: "Come back when resolved. Use `/debug` or `/suggest` to continue."
+
+When you present something for the user to confirm before proceeding, after they reply, classify their reply into exactly one of: confirm, modify, clarify, reject. Emit your classification as a single value inside the tag, not the list of options — for example, if the reply confirms, emit exactly <CONFIRMATION>confirm</CONFIRMATION>. Do not guess — if the reply does not clearly confirm, request a change, or reject, emit <CONFIRMATION>clarify</CONFIRMATION> and ask a follow-up question instead of acting.
+
+- `confirm` → proceed to Step 2.
+- `modify` or `reject` → "Come back when resolved. Use `/debug` or `/suggest` to continue." Do not proceed.
+- `clarify` → ask a follow-up question. Do not proceed.
 
 ---
 

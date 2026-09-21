@@ -19,9 +19,13 @@ Future<void> runDebug({
   String? projectRootOverride,
   Never Function(int code)? exitFn,
   PipelineExecutor? executor,
+  bool Function(String question)? confirmFn,
+  int Function(List<String> items)? pickFn,
 }) async {
-  final fileIO = io    ?? const RealFileIO();
-  final exit_  = exitFn ?? exit;
+  final fileIO   = io       ?? const RealFileIO();
+  final exit_    = exitFn   ?? exit;
+  final confirm_ = confirmFn ?? confirm;
+  final pick_    = pickFn   ?? arrowMenu;
 
   // ── Locate project ──────────────────────────────────────────────────────────
 
@@ -53,12 +57,8 @@ Future<void> runDebug({
   final status  = readStatus(handoff);
 
   if (status != 'ready-for-debug') {
-    stdout.write(
-      '\n  ${ansi.bold}⚠${ansi.reset}  Handoff status is ${ansi.bold}$status${ansi.reset} — expected ready-for-debug.\n'
-      '     Run debug anyway? [y/n] ',
-    );
-    final input = stdin.readLineSync();
-    if (input?.toLowerCase() != 'y') {
+    print('\n  ${ansi.bold}⚠${ansi.reset}  Handoff status is ${ansi.bold}$status${ansi.reset} — expected ready-for-debug.');
+    if (!confirm_('Run debug anyway?')) {
       print('Aborted.');
       exit_(0);
     }
@@ -157,7 +157,7 @@ Future<void> runDebug({
 
   print('${ansi.dim}${'─' * 44}${ansi.reset}\n');
 
-  final choice = arrowMenu([
+  final choice = pick_([
     'apply  ${ansi.dim}(write all files to disk)${ansi.reset}',
     'exit  ${ansi.dim}(quit without writing)${ansi.reset}',
   ]);
