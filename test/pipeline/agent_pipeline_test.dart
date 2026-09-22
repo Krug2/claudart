@@ -141,11 +141,11 @@ void main() {
       }) async {
         mock.captured.add(CallRecord(model: model, systemPrompt: systemPrompt, message: message));
         if (model == AgentModel.haiku) {
-          return (text: answerXml, usage: const Usage(input: 50, output: 20, cost: 0.0005, cacheRead: 0));
+          return StepResult(text: answerXml, usage: const Usage(input: 50, output: 20, cost: 0.0005, cacheRead: 0));
         }
         plannerCallCount++;
         final text = plannerCallCount == 1 ? questionXml : _plannerXml;
-        return (text: text, usage: const Usage(input: 200, output: 80, cost: 0.002, cacheRead: 0));
+        return StepResult(text: text, usage: const Usage(input: 200, output: 80, cost: 0.002, cacheRead: 0));
       };
 
       final exec = PipelineExecutor(
@@ -184,7 +184,7 @@ void main() {
       }) async {
         step++;
         final text = step == 1 ? _plannerXml : _applierXml;
-        return (text: text, usage: const Usage(input: 100, output: 50, cost: 0.001, cacheRead: 0));
+        return StepResult(text: text, usage: const Usage(input: 100, output: 50, cost: 0.001, cacheRead: 0));
       };
 
       final exec = PipelineExecutor(runner: twoStepRunner);
@@ -259,7 +259,7 @@ void main() {
       const constructXml =
           '<HANDOFF>## Status\nready-for-debug\n## Bug/Goal\nAdd null check</HANDOFF>';
       var callCount = 0;
-      Future<({String text, Usage usage})?> twoStepRunner({
+      Future<StepResult?> twoStepRunner({
         required AgentModel model,
         required String systemPrompt,
         required String message,
@@ -268,7 +268,7 @@ void main() {
       }) async {
         callCount++;
         final text = callCount == 1 ? planXml : constructXml;
-        return (text: text, usage: const Usage(input: 100, output: 50, cost: 0.001, cacheRead: 0));
+        return StepResult(text: text, usage: const Usage(input: 100, output: 50, cost: 0.001, cacheRead: 0));
       }
       final exec = PipelineExecutor(
         runner:           twoStepRunner,

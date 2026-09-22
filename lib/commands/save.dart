@@ -32,7 +32,8 @@ Future<SkillsUpdateResult> runSave({
   print(render.header('CLAUDART SAVE'));
 
   // 1 — Registry lookup.
-  final projectRoot = projectRootOverride ?? detectGitContext()?.root;
+  final gitCtx = projectRootOverride != null ? null : detectGitContext();
+  final projectRoot = projectRootOverride ?? gitCtx?.root;
   if (projectRoot == null) {
     print('\n✗ Not inside a git repository. Cannot detect project.\n');
     exit_(1);
@@ -83,7 +84,7 @@ Future<SkillsUpdateResult> runSave({
 
   // 6 — Report.
   sw.stop();
-  _printReport(entry.name, state, checkpointFile, skillsResult, sw.elapsedMilliseconds);
+  _printReport(entry.name, state, gitCtx?.branch, checkpointFile, skillsResult, sw.elapsedMilliseconds);
 
   return skillsResult;
 }
@@ -146,12 +147,13 @@ bool _isBlank(String s) =>
 void _printReport(
   String projectName,
   SessionState state,
+  String? liveBranch,
   String checkpointFile,
   SkillsUpdateResult skillsResult,
   int durationMs,
 ) {
   print('\n✓ Checkpoint: ${p.basename(checkpointFile)}  (${durationMs}ms)');
-  print('  Branch : ${state.branch}');
+  print('  Branch : ${liveBranch ?? state.branch}');
   print('  Status : ${state.status.value}');
 
   if (skillsResult == SkillsUpdateResult.written) {

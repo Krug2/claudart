@@ -62,10 +62,28 @@ final class AgentCompleted extends PipelineEvent {
   /// directly inside the generator.
   final bool postProcessRewrote;
 
+  /// Extended-thinking content the model produced before answering, if any.
+  /// Per-step only — never accumulated onto [PipelineContext.usage], unlike
+  /// [Usage.thinkingTokens] which is a real additive count.
+  final String? thinking;
+
+  /// Why the model stopped: `end_turn`, `tool_use`, `max_tokens`, etc.
+  final String? stopReason;
+
+  /// Wall-clock duration of this step's call, in milliseconds.
+  final int? durationMs;
+
+  /// Number of agentic turns (tool-call round trips) this step's call took.
+  final int? numTurns;
+
   const AgentCompleted({
     required this.stepId,
     required this.usage,
     this.postProcessRewrote = false,
+    this.thinking,
+    this.stopReason,
+    this.durationMs,
+    this.numTurns,
   });
 }
 

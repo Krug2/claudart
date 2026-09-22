@@ -23,20 +23,28 @@ class Usage {
 
   final double cost;
 
+  /// Output tokens spent on extended thinking, a subset of [output] (the
+  /// API bills thinking tokens as output tokens — this is a breakdown, not
+  /// an additional cost). Zero when the model didn't reason before
+  /// answering, or when the CLI response didn't report the breakdown.
+  final int thinkingTokens;
+
   const Usage({
     this.input        = 0,
     this.output       = 0,
     this.cacheRead    = 0,
     this.cacheCreation = 0,
     this.cost         = 0,
+    this.thinkingTokens = 0,
   });
 
   Usage operator +(Usage o) => Usage(
-    input:         input         + o.input,
-    output:        output        + o.output,
-    cacheRead:     cacheRead     + o.cacheRead,
-    cacheCreation: cacheCreation + o.cacheCreation,
-    cost:          cost          + o.cost,
+    input:          input          + o.input,
+    output:         output         + o.output,
+    cacheRead:      cacheRead      + o.cacheRead,
+    cacheCreation:  cacheCreation  + o.cacheCreation,
+    cost:           cost           + o.cost,
+    thinkingTokens: thinkingTokens + o.thinkingTokens,
   );
 
   /// Human-readable summary for terminal display.
@@ -46,6 +54,7 @@ class Usage {
     if (cacheRead > 0) buf.write(' · cached ${_fmtN(cacheRead)}');
     if (cacheCreation > 0) buf.write(' · cache-wr ${_fmtN(cacheCreation)}');
     buf.write(' · out ${_fmtN(output)}');
+    if (thinkingTokens > 0) buf.write(' (${_fmtN(thinkingTokens)} thinking)');
     if (cost > 0) buf.write(' · \$${cost.toStringAsFixed(4)}');
     return buf.toString();
   }
@@ -53,7 +62,7 @@ class Usage {
   @override
   String toString() =>
       'Usage(in:$input, out:$output, cached:$cacheRead, '
-      'cacheWrite:$cacheCreation, \$$cost)';
+      'cacheWrite:$cacheCreation, thinking:$thinkingTokens, \$$cost)';
 }
 
 String _fmtN(int n) => n >= 1000 ? '${(n / 1000).toStringAsFixed(1)}k' : '$n';

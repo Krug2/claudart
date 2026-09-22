@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:test/test.dart';
 import 'package:path/path.dart' as p;
 import 'package:claudart/commands/kill.dart';
 import 'package:claudart/file_io.dart';
+import 'package:claudart/git_utils.dart';
 import 'package:claudart/registry.dart';
 import 'package:claudart/paths.dart';
 import 'package:claudart/session/workspace_guard.dart';
@@ -242,6 +244,45 @@ void main() {
       );
 
       expect(isLocked(_workspace, io: io), isFalse);
+    });
+  });
+
+  group('kill — branch display', () {
+    test('prefers live git branch over stale handoff branch', () async {
+      final realGit = detectGitContext();
+      // Only meaningful inside a real git checkout — skip otherwise.
+      if (realGit == null) return;
+
+      final entry = RegistryEntry(
+        name: 'my-app',
+        projectRoot: realGit.root,
+        workspacePath: _workspace,
+        createdAt: '2026-01-01',
+        lastSession: '2026-03-15',
+      );
+      final io = MemoryFileIO(
+        files: {handoffPathFor(_workspace): _activeHandoff},
+        links: {_claudeLink},
+      );
+      Registry.empty().add(entry).save(io: io);
+
+      final output = <String>[];
+      await runZoned(
+        () => runKill(
+          io: io,
+          projectRootOverride: null,
+          confirmFn: (_) => true,
+          exitFn: (code) => throw _ExitException(code),
+        ),
+        zoneSpecification: ZoneSpecification(
+          print: (_, __, ___, line) => output.add(line),
+        ),
+      );
+
+      final printed = output.join('\n');
+      // _activeHandoff stores "Branch: feat/fix" — the live branch must win.
+      expect(printed, contains('Branch : ${realGit.branch}'));
+      expect(printed, isNot(contains('Branch : feat/fix')));
     });
   });
 

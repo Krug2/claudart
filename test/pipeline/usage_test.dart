@@ -22,6 +22,7 @@ void main() {
       expect(usage.cacheRead,     equals(0));
       expect(usage.cacheCreation, equals(0));
       expect(usage.cost,          equals(0));
+      expect(usage.thinkingTokens, equals(0));
     });
   });
 
@@ -52,6 +53,11 @@ void main() {
       expect(sum.cost, closeTo(0.03, 1e-9));
     });
 
+    test('thinkingTokens + thinkingTokens', () {
+      final sum = const Usage(thinkingTokens: 178) + const Usage(thinkingTokens: 42);
+      expect(sum.thinkingTokens, equals(220));
+    });
+
     test('mixed fields accumulate together', () {
       const a = Usage(
         input: 100,
@@ -59,6 +65,7 @@ void main() {
         cacheRead: 300,
         cacheCreation: 400,
         cost: 1.5,
+        thinkingTokens: 50,
       );
       const b = Usage(
         input: 11,
@@ -66,13 +73,15 @@ void main() {
         cacheRead: 33,
         cacheCreation: 44,
         cost: 0.5,
+        thinkingTokens: 5,
       );
       final sum = a + b;
-      expect(sum.input,         equals(111));
-      expect(sum.output,        equals(222));
-      expect(sum.cacheRead,     equals(333));
-      expect(sum.cacheCreation, equals(444));
-      expect(sum.cost,          closeTo(2.0, 1e-9));
+      expect(sum.input,          equals(111));
+      expect(sum.output,         equals(222));
+      expect(sum.cacheRead,      equals(333));
+      expect(sum.cacheCreation,  equals(444));
+      expect(sum.cost,           closeTo(2.0, 1e-9));
+      expect(sum.thinkingTokens, equals(55));
     });
   });
 
@@ -107,6 +116,13 @@ void main() {
       expect(formatted, contains(_fieldLabelCached));
       expect(formatted, contains(_fieldLabelCacheWrite));
     });
+
+    test('thinkingTokens-only renders "N thinking", zero hides it', () {
+      const withThinking = Usage(input: 5, output: 50, thinkingTokens: 30);
+      const withoutThinking = Usage(input: 5, output: 50);
+      expect(withThinking.format(), contains('thinking'));
+      expect(withoutThinking.format(), isNot(contains('thinking')));
+    });
   });
 
   test('Usage.toString includes every field name', () {
@@ -116,12 +132,14 @@ void main() {
       cacheRead: 3,
       cacheCreation: 4,
       cost: 5,
+      thinkingTokens: 6,
     );
     final repr = usage.toString();
     expect(repr, contains('in:1'));
     expect(repr, contains('out:2'));
     expect(repr, contains('cached:3'));
     expect(repr, contains('cacheWrite:4'));
+    expect(repr, contains('thinking:6'));
     expect(repr, contains(r'$5'));
   });
 }

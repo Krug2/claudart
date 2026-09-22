@@ -29,7 +29,8 @@ Future<void> runKill({
   print(render.header('CLAUDART SESSION KILL'));
 
   // 1 — Detect project root.
-  final projectRoot = projectRootOverride ?? detectGitContext()?.root;
+  final gitCtx = projectRootOverride != null ? null : detectGitContext();
+  final projectRoot = projectRootOverride ?? gitCtx?.root;
   if (projectRoot == null) {
     print('\n✗ Not inside a git repository. Cannot detect project.\n');
     exit_(1);
@@ -81,7 +82,7 @@ Future<void> runKill({
     }
   } else {
     final state = SessionState.parse(handoff);
-    _printSessionSummary(entry.name, state);
+    _printSessionSummary(entry.name, state, gitCtx?.branch);
   }
 
   // 6 — Final confirmation.
@@ -115,10 +116,10 @@ Future<void> runKill({
   print('Run `claudart setup` to start a new session.\n');
 }
 
-void _printSessionSummary(String name, SessionState state) {
+void _printSessionSummary(String name, SessionState state, String? liveBranch) {
   print('\n───────────────────────────────────────');
   print('  Session: $name');
-  print('  Branch : ${state.branch}');
+  print('  Branch : ${liveBranch ?? state.branch}');
   print('  Status : ${state.status.value}');
   print('  Bug    : ${_truncate(state.bug)}');
   if (state.hasActiveContent) {
