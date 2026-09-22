@@ -20,6 +20,7 @@ import 'package:claudart/commands/scan.dart';
 import 'package:claudart/commands/setup.dart';
 import 'package:claudart/commands/debug.dart';
 import 'package:claudart/commands/flow.dart';
+import 'package:claudart/commands/orchestrate.dart';
 import 'package:claudart/commands/suggest.dart';
 import 'package:claudart/commands/status.dart';
 import 'package:claudart/commands/rotate.dart';
@@ -45,6 +46,7 @@ Commands:
   teardown               Close session: update knowledge, archive handoff, suggest commit
   suggest                Run suggest pipeline: haiku reads scope files, sonnet writes handoff KT
   flow                   [experimental] Agent-constructed session: classify intent, plan, approve, build handoff
+  orchestrate            Run the portable Jev workflow; use --help for worker and checkpoint options
   save                   Checkpoint session: snapshot handoff, deposit confirmed facts to skills
   rotate                 Archive current session, run build gate, seed next handoff from Pending Issues
   kill                   Abandon session: archive handoff, remove symlink (no skills update)
@@ -131,6 +133,8 @@ Future<void> main(List<String> rawArgs) async {
       await runDebug();
     case ClaudartCommand.flow:
       await runFlow();
+    case ClaudartCommand.orchestrate:
+      await runOrchestrate(rest);
     case ClaudartCommand.save:
       await runSave();
     case ClaudartCommand.rotate:
