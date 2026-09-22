@@ -154,6 +154,82 @@ void main() {
     });
   });
 
+  group('PipelineExecutor — AgentCompleted forwards StepResult metadata', () {
+    test('thinking/stopReason/durationMs/numTurns reach the emitted event, '
+        'not just the parsing helpers that produce them', () async {
+      final step = AgentStep(
+        id: 'a',
+        label: 'Step A',
+        model: AgentModel.haiku,
+        systemPrompt: 'sys',
+        buildPrompt: (_) => 'msg',
+      );
+
+      final exec = PipelineExecutor(
+        runner: ({
+          required model,
+          required systemPrompt,
+          required message,
+          required workingDir,
+          StepMode mode = StepMode.project,
+        }) async =>
+            const StepResult(
+              text: 'answer',
+              usage: Usage(input: 1, output: 1, cacheRead: 0, cost: 0),
+              thinking: 'reasoning text',
+              stopReason: 'end_turn',
+              durationMs: 4321,
+              numTurns: 3,
+            ),
+      );
+
+      final events = await exec
+          .run(steps: [step], ctx: _ctx(), displayStep: 1, displayTotal: 1)
+          .toList();
+
+      final completed = events.whereType<AgentCompleted>().single;
+      expect(completed.thinking, equals('reasoning text'));
+      expect(completed.stopReason, equals('end_turn'));
+      expect(completed.durationMs, equals(4321));
+      expect(completed.numTurns, equals(3));
+    });
+
+    test('null metadata fields on StepResult forward as null, not dropped '
+        'silently or defaulted', () async {
+      final step = AgentStep(
+        id: 'a',
+        label: 'Step A',
+        model: AgentModel.haiku,
+        systemPrompt: 'sys',
+        buildPrompt: (_) => 'msg',
+      );
+
+      final exec = PipelineExecutor(
+        runner: ({
+          required model,
+          required systemPrompt,
+          required message,
+          required workingDir,
+          StepMode mode = StepMode.project,
+        }) async =>
+            const StepResult(
+              text: 'answer',
+              usage: Usage(input: 1, output: 1, cacheRead: 0, cost: 0),
+            ),
+      );
+
+      final events = await exec
+          .run(steps: [step], ctx: _ctx(), displayStep: 1, displayTotal: 1)
+          .toList();
+
+      final completed = events.whereType<AgentCompleted>().single;
+      expect(completed.thinking, isNull);
+      expect(completed.stopReason, isNull);
+      expect(completed.durationMs, isNull);
+      expect(completed.numTurns, isNull);
+    });
+  });
+
   group('PipelineExecutor — mode', () {
     test('AgentStep.mode reaches the runner call', () async {
       StepMode? capturedMode;

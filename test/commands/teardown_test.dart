@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:test/test.dart';
 import 'package:path/path.dart' as p;
 import 'package:claudart/commands/teardown.dart' show runTeardown, TeardownCategory;
@@ -655,6 +657,37 @@ void main() {
       expect(_archives(io), hasLength(1),
           reason: 'a reminder is still archived — headless never silently '
               'discards an unresolved session\'s context');
+    });
+
+    test('prints a Headless decision summary before writing the reminder '
+        'archive entry — the reminder write happens with no human prompt '
+        'too, same as the resolved path\'s fuller summary', () async {
+      final io = _io(handoff: _richHandoff); // status: debug-in-progress
+      final output = <String>[];
+
+      await expectLater(
+        runZoned(
+          () => runTeardown(
+            io: io,
+            projectRootOverride: _projectRoot,
+            mode: RunMode.headless,
+            confirmFn: throwOnCall('confirmFn'),
+            promptFn: (q, {optional = false}) =>
+                throw StateError('headless must never call promptFn: $q'),
+            pickFn: (items, {startIndex = 0}) =>
+                throw StateError('headless must never call pickFn'),
+            exitFn: _throwExit,
+          ),
+          zoneSpecification: ZoneSpecification(
+            print: (_, __, ___, line) => output.add(line),
+          ),
+        ),
+        throwsA(isA<_ExitException>().having((e) => e.code, 'code', 0)),
+      );
+
+      final printed = output.join('\n');
+      expect(printed, contains('Headless decision'));
+      expect(printed, contains('Record type : reminder'));
     });
 
     test('never records the unspecified sentinel as a real hot-path file '

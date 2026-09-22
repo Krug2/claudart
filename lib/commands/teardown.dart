@@ -104,11 +104,25 @@ Future<void> runTeardown({
       final description = headless
           ? bug
           : prompt_("Brief description (what's still pending)", optional: true) ?? '';
+      final resolvedDescription =
+          description.trim().isEmpty ? bug : description.trim();
+      if (headless) {
+        // Same "verify before trusting the archive" contract as the
+        // resolved path's fuller Headless decisions block below — this
+        // write happens with no human prompt too, so what's about to be
+        // archived must be visible first, not just discoverable after.
+        print('\n───────────────────────────────────────');
+        print('Headless decision — verify before trusting the archive:');
+        print('───────────────────────────────────────');
+        print('  Record type : reminder (not confirmed resolved)');
+        print('  Description : ${_truncate(resolvedDescription)}');
+        print('───────────────────────────────────────');
+      }
       _writeArchiveEntry(
         fileIO:      fileIO,
         workspace:   workspace,
         kind:        ArchiveKind.reminder,
-        description: description.trim().isEmpty ? bug : description.trim(),
+        description: resolvedDescription,
         branch:      branch,
         handoff:     handoff,
         skillsDelta: null,
