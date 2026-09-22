@@ -15,6 +15,10 @@ export interface WorkflowRecord extends Assignment {
   result: Handoff
   interrupted?: boolean
 }
+export interface Clarification {
+  text: string
+  afterRecord: number
+}
 export interface Workflow {
   version: 1
   id: string
@@ -35,6 +39,7 @@ export interface Workflow {
     | "interrupted"
   active: Assignment | null
   records: WorkflowRecord[]
+  clarifications: Clarification[]
   decisions: {
     kind: string
     choice: string
@@ -50,6 +55,7 @@ export interface WorkerRequest extends Assignment {
   goal: string
   context: string
   constraints: string[]
+  clarifications: Clarification[]
   scope: string[]
   permission: "read-only" | "write"
   handoffs: WorkflowRecord[]
@@ -78,7 +84,10 @@ export function createWorkflow(input: {
   maxSteps?: number
 }): Workflow
 export function restoreWorkflow(value: unknown): Workflow
-export function resumeWorkflow(value: unknown): Workflow
+export function resumeWorkflow(
+  value: unknown,
+  input?: { clarification?: string }
+): Workflow
 export function workerPrompt(request: WorkerRequest): string
 export function createJevDecider(input: {
   apiKey: string
@@ -94,6 +103,7 @@ export function runWorkflow(
       signal: AbortSignal
     ): Promise<string | Handoff>
     checkpoint(state: Workflow): void | Promise<void>
+    allowWrite?: boolean
     signal?: AbortSignal
     timeoutMs?: number
   }
