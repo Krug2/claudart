@@ -121,9 +121,10 @@ async function execute(worker, request, cwd, signal) {
         failure = new Error("Worker timed out")
         kill()
       }, 15 * 60_000)
+      child.stdout.setEncoding("utf8")
       child.stdout.on("data", (chunk) => {
-        if (codex) return
-        output += chunk.toString()
+        if (codex || failure) return
+        output += chunk
         if (Buffer.byteLength(output) > 256_000) {
           failure = new Error("Worker response too large")
           kill()
@@ -178,6 +179,7 @@ async function main() {
       config: { type: "string" },
       checkpoint: { type: "string" },
       resume: { type: "boolean" },
+      clarification: { type: "string" },
       worker: { type: "string", default: "claude" },
       model: { type: "string" },
       "allow-write": { type: "boolean", default: false },
@@ -188,10 +190,12 @@ async function main() {
   })
   if (values.help) {
     process.stdout.write(
-      'claudart-orchestrate --goal <request> [--workspace <directory>] [--worker claude|codex] [--model <model>] [--allow-write] [--scope <relative path>] [--constraint <instruction>] [--config <workers.json>] [--checkpoint <path>] [--resume]\n\nUses JEV_API_KEY or the Windows local credential. Default worker: Claude Sonnet. Codex uses your configured model unless --model is supplied.\nWorker config: {"workers":[{"id":"worker","adapter":"json","command":"executable","args":[],"description":"Capabilities","canWrite":false}]}\nJSON workers read one version 1 request from stdin and return one JSON handoff to stdout. Hosts must enforce the requested permission and scope.\n'
+      'claudart-orchestrate --goal <request> [--workspace <directory>] [--worker claude|codex] [--model <model>] [--allow-write] [--scope <relative path>] [--constraint <instruction>] [--config <workers.json>] [--checkpoint <path>] [--resume] [--clarification <text>]\n\nUses JEV_API_KEY or the Windows local credential. Default worker: Claude Sonnet. Codex uses your configured model unless --model is supplied.\nResume with --resume --checkpoint <path>; add --clarification <text> to resolve a blocker. The original goal, scope and limits remain in force. Repeat --allow-write to permit further changes.\nWorker config: {"workers":[{"id":"worker","adapter":"json","command":"executable","args":[],"description":"Capabilities","canWrite":false}]}\nJSON workers read one version 1 request from stdin and return one JSON handoff to stdout. Hosts must enforce the requested permission and scope.\n'
     )
     return
   }
+  if (values.clarification !== undefined && !values.resume)
+    throw new Error("Use --clarification with --resume --checkpoint")
   const workspace = await fs.realpath(values.workspace)
   if (!(await fs.stat(workspace)).isDirectory())
     throw new Error("Workspace must be a directory")
@@ -216,14 +220,24 @@ async function main() {
   if (
     !Array.isArray(config.workers) ||
     !config.workers.length ||
+    config.workers.length > 128 ||
+    new Set(config.workers.map((worker) => worker?.id)).size !==
+      config.workers.length ||
     config.workers.some(
       (worker) =>
+        !worker ||
         typeof worker.id !== "string" ||
         !/^[\w-]{1,64}$/.test(worker.id) ||
         !["json", "claude", "codex"].includes(worker.adapter) ||
         typeof worker.description !== "string" ||
+        !worker.description.trim() ||
+        worker.description.length > 4000 ||
         typeof worker.canWrite !== "boolean" ||
         (worker.adapter === "json" && typeof worker.command !== "string") ||
+        (worker.command !== undefined &&
+          (typeof worker.command !== "string" || !worker.command.trim())) ||
+        (worker.model !== undefined &&
+          (typeof worker.model !== "string" || !worker.model.trim())) ||
         (worker.args !== undefined &&
           (!Array.isArray(worker.args) ||
             worker.args.some((arg) => typeof arg !== "string")))
@@ -280,8 +294,9 @@ async function main() {
       const saved = JSON.parse(await fs.readFile(checkpoint, "utf8"))
       if (saved.workspace !== workspace)
         throw new Error("Checkpoint belongs to a different workspace")
-      state = resumeWorkflow(saved.workflow)
-      state.allowWrite = state.allowWrite && values["allow-write"]
+      state = resumeWorkflow(saved.workflow, {
+        clarification: values.clarification,
+      })
     }
     if (!values.resume) {
       try {
@@ -293,6 +308,7 @@ async function main() {
     }
     state = await runWorkflow(state, {
       workers: config.workers,
+      allowWrite: values["allow-write"],
       decide: createJevDecider({ apiKey: key }),
       signal: controller.signal,
       checkpoint: async (workflow) => {
