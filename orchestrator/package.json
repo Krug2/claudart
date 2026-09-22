@@ -1,0 +1,12 @@
+{
+  "name": "@claudart/orchestrator",
+  "version": "0.1.0",
+  "description": "Portable Jev workflow coordinator",
+  "license": "MIT",
+  "type": "commonjs",
+  "main": "index.cjs",
+  "types": "index.d.ts",
+  "bin": { "claudart-orchestrate": "cli.cjs" },
+  "files": ["*.cjs", "*.d.ts", "LICENSE"],
+  "engines": { "node": ">=22" }
+}
