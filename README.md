@@ -279,6 +279,7 @@ claudart suggest        # run suggest pipeline (agent dispatch)
 claudart save           # checkpoint, lock root cause
 claudart debug          # run debug pipeline (implement fix)
 claudart teardown       # archive, promote skills, suggest commit
+claudart teardown --headless  # same, but resolves every decision itself
 ```
 
 <details>
@@ -286,26 +287,26 @@ claudart teardown       # archive, promote skills, suggest commit
 
 | Command | Role | Code |
 |---|---|---|
-| `archives` | list session archives, resume or view | [bin/claudart.dart:79](bin/claudart.dart#L79) |
-| `init` | workspace initialization | [bin/claudart.dart:81](bin/claudart.dart#L81) |
-| `link` | symlink + register + setup sensitivity | [bin/claudart.dart:83](bin/claudart.dart#L83) |
-| `unlink` | remove symlinks cleanly | [bin/claudart.dart:85](bin/claudart.dart#L85) |
-| `setup` | start session, write handoff.md | [bin/claudart.dart:87](bin/claudart.dart#L87) |
-| `status` | session state, compact for shell | [bin/claudart.dart:91](bin/claudart.dart#L91) |
-| `teardown` | archive, promote skills | [bin/claudart.dart:93](bin/claudart.dart#L93) |
-| `suggest` | run suggest pipeline | [bin/claudart.dart:95](bin/claudart.dart#L95) |
-| `debug` | run debug pipeline | [bin/claudart.dart:97](bin/claudart.dart#L97) |
-| `flow` | experimental agent-constructed session | [bin/claudart.dart:99](bin/claudart.dart#L99) |
-| `save` | checkpoint session | [bin/claudart.dart:101](bin/claudart.dart#L101) |
-| `rotate` | archive, build gate, seed next from Pending Issues | [bin/claudart.dart:103](bin/claudart.dart#L103) |
-| `kill` | abandon session, no skills update | [bin/claudart.dart:105](bin/claudart.dart#L105) |
-| `preflight <op>` | sync check, debug, save, or test | [bin/claudart.dart:107](bin/claudart.dart#L107) |
-| `scan` | rescan for sensitive tokens | [bin/claudart.dart:110](bin/claudart.dart#L110) |
-| `report` | diagnostic report, file GitHub issues | [bin/claudart.dart:125](bin/claudart.dart#L125) |
-| `map` | generate token_map.md from token_map.json | [bin/claudart.dart:132](bin/claudart.dart#L132) |
-| `experiment` | tee command output to experiments/ | [bin/claudart.dart:138](bin/claudart.dart#L138) |
-| `compile` | rebuild the binary | [bin/claudart.dart:140](bin/claudart.dart#L140) |
-| `version` | print version | [bin/claudart.dart:142](bin/claudart.dart#L142) |
+| `archives` | list session archives, resume or view | [bin/claudart.dart:113](bin/claudart.dart#L113) |
+| `init` | workspace initialization | [bin/claudart.dart:115](bin/claudart.dart#L115) |
+| `link` | symlink + register + setup sensitivity | [bin/claudart.dart:117](bin/claudart.dart#L117) |
+| `unlink` | remove symlinks cleanly | [bin/claudart.dart:119](bin/claudart.dart#L119) |
+| `setup` | start session, write handoff.md | [bin/claudart.dart:121](bin/claudart.dart#L121) |
+| `status` | session state, compact for shell | [bin/claudart.dart:125](bin/claudart.dart#L125) |
+| `teardown [--headless]` | archive, promote skills; `--headless` resolves every decision itself | [bin/claudart.dart:127](bin/claudart.dart#L127) |
+| `suggest` | run suggest pipeline | [bin/claudart.dart:131](bin/claudart.dart#L131) |
+| `debug` | run debug pipeline | [bin/claudart.dart:133](bin/claudart.dart#L133) |
+| `flow` | experimental agent-constructed session | [bin/claudart.dart:135](bin/claudart.dart#L135) |
+| `save` | checkpoint session | [bin/claudart.dart:137](bin/claudart.dart#L137) |
+| `rotate` | archive, build gate, seed next from Pending Issues | [bin/claudart.dart:139](bin/claudart.dart#L139) |
+| `kill` | abandon session, no skills update | [bin/claudart.dart:141](bin/claudart.dart#L141) |
+| `preflight <op>` | sync check, debug, save, or test | [bin/claudart.dart:145](bin/claudart.dart#L145) |
+| `scan` | rescan for sensitive tokens | [bin/claudart.dart:148](bin/claudart.dart#L148) |
+| `report` | diagnostic report, file GitHub issues | [bin/claudart.dart:163](bin/claudart.dart#L163) |
+| `map` | generate token_map.md from token_map.json | [bin/claudart.dart:170](bin/claudart.dart#L170) |
+| `experiment` | tee command output to experiments/ | [bin/claudart.dart:176](bin/claudart.dart#L176) |
+| `compile` | rebuild the binary | [bin/claudart.dart:178](bin/claudart.dart#L178) |
+| `version` | print version | [bin/claudart.dart:90](bin/claudart.dart#L90) |
 
 </details>
 
