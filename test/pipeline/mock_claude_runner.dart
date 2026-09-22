@@ -48,6 +48,6 @@ class MockClaudeRunner {
                 .firstOrNull ??
             responses.values.firstOrNull ??
             '';
-        return (text: text, usage: const Usage(input: 100, output: 50, cacheRead: 0, cost: 0.001));
+        return StepResult(text: text, usage: const Usage(input: 100, output: 50, cacheRead: 0, cost: 0.001));
       };
 }

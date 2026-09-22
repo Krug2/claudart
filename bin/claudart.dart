@@ -24,6 +24,7 @@ import 'package:claudart/commands/orchestrate.dart';
 import 'package:claudart/commands/suggest.dart';
 import 'package:claudart/commands/status.dart';
 import 'package:claudart/commands/rotate.dart';
+import 'package:claudart/session/run_mode.dart';
 import 'package:claudart/commands/teardown.dart';
 import 'package:claudart/commands/unlink.dart';
 
@@ -43,7 +44,7 @@ Commands:
   unlink                 Remove workspace symlinks from current project
   setup [path]           Start a new session (path defaults to current directory)
   status [--prompt]      Show current session state; --prompt outputs a compact colored string for shell RPROMPT/PS1
-  teardown               Close session: update knowledge, archive handoff, suggest commit
+  teardown [--headless]  Close session: update knowledge, archive handoff, suggest commit; --headless resolves every decision itself and prints a summary instead of prompting
   suggest                Run suggest pipeline: haiku reads scope files, sonnet writes handoff KT
   flow                   [experimental] Agent-constructed session: classify intent, plan, approve, build handoff
   orchestrate            Run the portable Jev workflow; use --help for worker and checkpoint options
@@ -126,7 +127,9 @@ Future<void> main(List<String> rawArgs) async {
     case ClaudartCommand.status:
       await runStatus(prompt: rest.contains('--prompt'));
     case ClaudartCommand.teardown:
-      await runTeardown();
+      await runTeardown(
+        mode: rest.contains('--headless') ? RunMode.headless : RunMode.interactive,
+      );
     case ClaudartCommand.suggest:
       await runSuggest();
     case ClaudartCommand.debug:

@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:test/test.dart';
 import 'package:path/path.dart' as p;
 import 'package:claudart/commands/launch.dart';
+import 'package:claudart/git_utils.dart';
 import 'package:claudart/registry.dart';
 import 'package:claudart/paths.dart';
 import 'package:claudart/session/workspace_guard.dart';
@@ -338,6 +340,74 @@ void main() {
         exitFn: _throwExit,
       );
       expect(pickCall, equals(2));
+    });
+  });
+
+  group('launch — branch display', () {
+    test('prefers live git branch over stale handoff branch for the cwd project', () async {
+      final realGit = detectGitContext();
+      // Only meaningful inside a real git checkout — skip otherwise.
+      if (realGit == null) return;
+
+      final io = MemoryFileIO(
+        files: {handoffPathFor(_workspace): _activeHandoff},
+      );
+      Registry.empty()
+          .add(RegistryEntry(
+            name: 'my-app',
+            projectRoot: realGit.root,
+            workspacePath: _workspace,
+            createdAt: '2026-01-01',
+            lastSession: '2026-03-15',
+            sensitivityMode: false,
+          ))
+          .save(io: io);
+
+      final output = <String>[];
+      var pickCall = 0;
+      await runZoned(
+        () => runLauncher(
+          io: io,
+          projectRootOverride: null,
+          pickFn: (_) {
+            pickCall++;
+            return pickCall == 1 ? 0 : ActiveMenu.back;
+          },
+          exitFn: _throwExit,
+        ),
+        zoneSpecification: ZoneSpecification(
+          print: (_, __, ___, line) => output.add(line),
+        ),
+      );
+
+      final printed = output.join('\n');
+      // _activeHandoff stores "Branch: feat/fix" — the live branch must win.
+      expect(printed, contains('Branch : ${realGit.branch}'));
+      expect(printed, isNot(contains('Branch : feat/fix')));
+    });
+
+    test('falls back to handoff branch for a project that is not the cwd project', () async {
+      final io = _io(withHandoff: true, withLink: false);
+      final output = <String>[];
+      var pickCall = 0;
+      await runZoned(
+        () => runLauncher(
+          io: io,
+          // Never matches the real cwd's git root, so this entry is not
+          // "the current project" — its stored branch must be shown as-is.
+          projectRootOverride: null,
+          pickFn: (_) {
+            pickCall++;
+            return pickCall == 1 ? 0 : ActiveMenu.back;
+          },
+          exitFn: _throwExit,
+        ),
+        zoneSpecification: ZoneSpecification(
+          print: (_, __, ___, line) => output.add(line),
+        ),
+      );
+
+      expect(output.join('\n'), contains('Branch : feat/fix'));
     });
   });
 }

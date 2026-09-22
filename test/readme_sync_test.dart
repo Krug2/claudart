@@ -53,7 +53,7 @@ void main() {
   });
 
   group('File reference sync', () {
-    test('every .dart file referenced in the prose exists under lib/ or bin/ '
+    test('every .dart file referenced in the prose exists under lib/, bin/, or tool/ '
         '(Roadmap excluded)', () {
       // The Roadmap names planned files that intentionally do not exist yet.
       final prose = readme.replaceAll(
@@ -64,6 +64,7 @@ void main() {
       final dartFiles = [
         ...Directory('lib').listSync(recursive: true),
         ...Directory('bin').listSync(recursive: true),
+        ...Directory('tool').listSync(recursive: true),
       ].whereType<File>().map((f) => f.path).toList();
 
       final refs = RegExp(r'[A-Za-z0-9_/]+\.dart')
@@ -76,7 +77,7 @@ void main() {
           dartFiles.any((f) => f.endsWith('/$basename')),
           isTrue,
           reason: '`$basename` is referenced in README.md prose but does not '
-              'exist under lib/ or bin/. Fix or remove the reference.',
+              'exist under lib/, bin/, or tool/. Fix or remove the reference.',
         );
       }
     });

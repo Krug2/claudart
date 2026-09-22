@@ -73,7 +73,7 @@ Future<void> runSetup({
     if (state.hasActiveContent) {
       final statusColour = _statusColour(state.status);
       print('\n─── ${entry.name} ───────────────────────────────');
-      print('  Branch : ${state.branch}');
+      print('  Branch : ${gitCtx?.branch ?? state.branch}');
       print('  Status : ${ansi.c(statusColour, state.status.value)}');
       print('  Bug    : ${_truncate(state.bug)}');
       print('');

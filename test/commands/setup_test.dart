@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:claudart/commands/setup.dart';
+import 'package:claudart/git_utils.dart';
 import 'package:claudart/registry.dart';
 import 'package:claudart/paths.dart';
 import '../helpers/mocks.dart';
@@ -227,6 +229,51 @@ void main() {
         ),
         throwsA(isA<_ExitException>().having((e) => e.code, 'code', 1)),
       );
+    });
+  });
+
+  // ── Branch display ───────────────────────────────────────────────────────────
+
+  group('setup — branch display', () {
+    test('prefers live git branch over stale handoff branch', () async {
+      final realGit = detectGitContext();
+      // Only meaningful inside a real git checkout — skip otherwise.
+      if (realGit == null) return;
+
+      final entry = RegistryEntry(
+        name: _projectName,
+        projectRoot: realGit.root,
+        workspacePath: _workspace,
+        createdAt: '2026-01-01',
+        lastSession: '2026-03-15',
+      );
+      final io = MemoryFileIO(
+        dirs: {realGit.root},
+        files: {handoffPathFor(_workspace): _activeHandoff},
+      );
+      Registry.empty().add(entry).save(io: io);
+
+      final output = <String>[];
+      try {
+        await runZoned(
+          () => runSetup(
+            io: io,
+            projectRootOverride: null,
+            confirmFn: (_) => true,
+            promptFn: _prompts([]),
+            pickFn: (_) => _menuBack,
+            exitFn: _throwExit,
+          ),
+          zoneSpecification: ZoneSpecification(
+            print: (_, __, ___, line) => output.add(line),
+          ),
+        );
+      } on _ExitException {/*expected — Back exits 0*/}
+
+      final printed = output.join('\n');
+      // _activeHandoff stores "Branch: fix/null-ref" — the live branch must win.
+      expect(printed, contains('Branch : ${realGit.branch}'));
+      expect(printed, isNot(contains('Branch : fix/null-ref')));
     });
   });
 
