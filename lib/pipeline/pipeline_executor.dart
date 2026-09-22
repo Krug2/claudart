@@ -425,39 +425,57 @@ enum _StreamEventType {
   }
 }
 
+/// Casts [value] to a JSON object map, or `null` when it isn't one — a
+/// successfully-decoded JSON value is not necessarily an object (`null`,
+/// an array, a bare string/number all decode without error), so every
+/// object-shaped access below goes through this instead of `as Map<...>`,
+/// which throws (uncaught `TypeError`, not `FormatException`) on those
+/// valid-but-wrong-shape values.
+Map<String, dynamic>? _asJsonMap(Object? value) =>
+    value is Map<String, dynamic> ? value : null;
+
+/// Casts [value] to a [String], or `null` when it isn't one — same
+/// wrong-shape-throws-TypeError reasoning as [_asJsonMap], for scalar
+/// fields read off a decoded JSON object.
+String? _asJsonString(Object? value) => value is String ? value : null;
+
 /// Parses one line of `--output-format stream-json --include-partial-messages`
 /// output for extended-thinking content. Two things only live in the stream,
 /// never on the final `"type":"result"` line: the thinking text itself
 /// (`content_block_delta` events with a `thinking_delta`) and its token
 /// count (the `message_delta` event's `usage.output_tokens_details
 /// .thinking_tokens`). Malformed or irrelevant lines are silently ignored —
-/// this is best-effort enrichment, not required for the step to succeed.
+/// this is best-effort enrichment, not required for the step to succeed —
+/// including lines that are valid JSON but not the object shape expected
+/// at any level (a bare `null`, an array, a scalar).
 void _accumulateThinking(
   String line,
   StringBuffer thinkingBuffer,
   void Function(int) onThinkingTokens,
 ) {
-  Map<String, dynamic> json;
+  Object? decoded;
   try {
-    json = jsonDecode(line) as Map<String, dynamic>;
+    decoded = jsonDecode(line);
   } on FormatException {
     return;
   }
+  final json = _asJsonMap(decoded);
+  if (json == null) return;
   if (json['type'] != 'stream_event') return;
-  final event = json['event'] as Map<String, dynamic>?;
+  final event = _asJsonMap(json['event']);
   if (event == null) return;
 
-  switch (_StreamEventType.fromWire(event['type'] as String?)) {
+  switch (_StreamEventType.fromWire(_asJsonString(event['type']))) {
     case _StreamEventType.contentBlockDelta:
-      final delta = event['delta'] as Map<String, dynamic>?;
+      final delta = _asJsonMap(event['delta']);
       if (delta?['type'] == 'thinking_delta') {
-        thinkingBuffer.write(delta!['thinking'] as String? ?? '');
+        thinkingBuffer.write(_asJsonString(delta!['thinking']) ?? '');
       }
     case _StreamEventType.messageDelta:
-      final usage = event['usage'] as Map<String, dynamic>?;
-      final details = usage?['output_tokens_details'] as Map<String, dynamic>?;
-      final tokens = details?['thinking_tokens'] as int?;
-      if (tokens != null) onThinkingTokens(tokens);
+      final usage = _asJsonMap(event['usage']);
+      final details = _asJsonMap(usage?['output_tokens_details']);
+      final tokens = details?['thinking_tokens'];
+      if (tokens is int) onThinkingTokens(tokens);
     case null:
       // Every other stream_event subtype (message_start, content_block_start
       // /stop, message_stop, ...) — nothing this helper needs.
@@ -500,6 +518,38 @@ Future<ClaudeStreamResult> consumeClaudeStream(
     lines: collected,
     thinking: thinkingBuffer.isEmpty ? null : thinkingBuffer.toString(),
     thinkingTokens: thinkingTokens,
+  );
+}
+
+/// Parses the final `"type":"result"` line of a `claude` stream into a
+/// [StepResult], combining it with the thinking text/token count already
+/// accumulated from earlier stream lines by [consumeClaudeStream]. Split
+/// out from [defaultClaudeRunner] so `stop_reason`/`duration_ms`/`num_turns`
+/// extraction can be tested directly against a real result-line string,
+/// without spawning a `claude` subprocess.
+StepResult parseClaudeResultLine(
+  String resultLine, {
+  required String? thinkingBuffer,
+  required int thinkingTokens,
+}) {
+  final json  = jsonDecode(resultLine) as Map<String, dynamic>;
+  final text  = (json['result'] as String?) ?? '';
+  final raw   = json['usage']   as Map<String, dynamic>? ?? {};
+  final usage = Usage(
+    input:         (raw['input_tokens']                as int?) ?? 0,
+    output:        (raw['output_tokens']               as int?) ?? 0,
+    cacheRead:     (raw['cache_read_input_tokens']     as int?) ?? 0,
+    cacheCreation: (raw['cache_creation_input_tokens'] as int?) ?? 0,
+    cost: (json['total_cost_usd'] as num?)?.toDouble() ?? 0,
+    thinkingTokens: thinkingTokens,
+  );
+  return StepResult(
+    text: text,
+    usage: usage,
+    thinking: thinkingBuffer,
+    stopReason: json['stop_reason'] as String?,
+    durationMs: json['duration_ms'] as int?,
+    numTurns: json['num_turns'] as int?,
   );
 }
 
@@ -572,36 +622,23 @@ Future<StepResult?> defaultClaudeRunner({
     );
     if (resultLine.isEmpty) return null;
 
-    final json  = jsonDecode(resultLine) as Map<String, dynamic>;
-    final text  = (json['result'] as String?) ?? '';
-    final raw   = json['usage']   as Map<String, dynamic>? ?? {};
-    final usage = Usage(
-      input:         (raw['input_tokens']                as int?) ?? 0,
-      output:        (raw['output_tokens']               as int?) ?? 0,
-      cacheRead:     (raw['cache_read_input_tokens']     as int?) ?? 0,
-      cacheCreation: (raw['cache_creation_input_tokens'] as int?) ?? 0,
-      cost: (json['total_cost_usd'] as num?)?.toDouble() ?? 0,
+    final result = parseClaudeResultLine(
+      resultLine,
+      thinkingBuffer: thinkingBuffer,
       thinkingTokens: thinkingTokens,
     );
     trace.writeSummary(
       modelAlias: model.alias,
       systemPrompt: systemPrompt,
       message: message,
-      input: usage.input,
-      cacheRead: usage.cacheRead,
-      cacheCreation: usage.cacheCreation,
-      output: usage.output,
-      cost: usage.cost,
-      resultText: text,
+      input: result.usage.input,
+      cacheRead: result.usage.cacheRead,
+      cacheCreation: result.usage.cacheCreation,
+      output: result.usage.output,
+      cost: result.usage.cost,
+      resultText: result.text,
     );
-    return StepResult(
-      text: text,
-      usage: usage,
-      thinking: thinkingBuffer,
-      stopReason: json['stop_reason'] as String?,
-      durationMs: json['duration_ms'] as int?,
-      numTurns: json['num_turns'] as int?,
-    );
+    return result;
   } on Exception catch (e) {
     trace.writeException(e);
     stderr.writeln('claude call failed: $e');

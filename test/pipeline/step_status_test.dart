@@ -1,7 +1,8 @@
-// step_status_test.dart — StepStatus.fromEvent, the canonical PipelineEvent
-// → StepStatus projection. One test() per PipelineEvent subtype, per
-// dartrix's testing paradigm — a loop here would collapse every variant's
-// pass/fail into one result and hide failures after the first.
+// step_status_test.dart — StepStatusFromEvent.fromEvent, the canonical
+// PipelineEvent → StepStatus projection. One test() per PipelineEvent
+// subtype, per dartrix's testing paradigm — a loop here would collapse
+// every variant's pass/fail into one result and hide failures after the
+// first.
 
 import 'package:claudart/pipeline/agent_model.dart';
 import 'package:claudart/pipeline/pipeline_context.dart';

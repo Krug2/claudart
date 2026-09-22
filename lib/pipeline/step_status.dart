@@ -4,8 +4,11 @@
 // lifecycle model is the sealed PipelineEvent hierarchy (pipeline_event.dart).
 // StepStatus is a derived projection of that stream for consumers that want
 // a per-step display state (spinner glyph, colour) rather than the full
-// event. `StepStatus.fromEvent` is the one canonical, tested projection —
-// consumers should use it instead of re-deriving their own mapping.
+// event. `StepStatusFromEvent.fromEvent` is the one canonical, tested
+// projection — consumers should use it instead of re-deriving their own
+// mapping. (Called via the extension's own name, not `StepStatus.fromEvent`
+// — a static extension member is namespaced under the extension, not the
+// extended type.)
 
 import 'pipeline_event.dart';
 

@@ -331,5 +331,79 @@ void main() {
         '{"type":"stream_event"}',
       ]));
     });
+
+    test('valid JSON that is not an object at any level is ignored, not '
+        'thrown — a bare null/array/number/string decodes successfully but '
+        'is the wrong shape for every level this parser expects', () async {
+      final lines = [
+        'null', // top-level: valid JSON, not a Map
+        '[1, 2, 3]', // top-level: valid JSON, not a Map
+        '"just a string"', // top-level: valid JSON, not a Map
+        '42', // top-level: valid JSON, not a Map
+        '{"type":"stream_event","event":"not an object"}', // event: wrong shape
+        '{"type":"stream_event","event":{"type":123}}', // event.type: not a String
+        '{"type":"stream_event","event":{"type":"content_block_delta",'
+            '"delta":"not an object"}}', // delta: wrong shape
+        '{"type":"stream_event","event":{"type":"message_delta",'
+            '"usage":"not an object"}}', // usage: wrong shape
+        '{"type":"stream_event","event":{"type":"message_delta",'
+            '"usage":{"output_tokens_details":"not an object"}}}', // details: wrong shape
+      ];
+
+      // The point of this test: none of the above throws. If any line
+      // regresses to an unguarded `as Map<...>`/`as String?` cast, this
+      // await throws a TypeError and the test fails.
+      final result = await consumeClaudeStream(
+        Stream.fromIterable(lines),
+        StepDebugTrace.disabled(),
+      );
+
+      expect(result.thinking, isNull);
+      expect(result.thinkingTokens, equals(0));
+      expect(result.lines, equals(lines));
+    });
+  });
+
+  group('parseClaudeResultLine — final result-line → StepResult', () {
+    test('extracts text, usage, stop_reason, duration_ms, and num_turns', () {
+      const resultLine = '{"type":"result","result":"The answer.",'
+          '"stop_reason":"end_turn","duration_ms":4321,"num_turns":3,'
+          '"total_cost_usd":0.05,'
+          '"usage":{"input_tokens":10,"output_tokens":20,'
+          '"cache_read_input_tokens":5,"cache_creation_input_tokens":2}}';
+
+      final result = parseClaudeResultLine(
+        resultLine,
+        thinkingBuffer: 'reasoning text',
+        thinkingTokens: 42,
+      );
+
+      expect(result.text, equals('The answer.'));
+      expect(result.thinking, equals('reasoning text'));
+      expect(result.stopReason, equals('end_turn'));
+      expect(result.durationMs, equals(4321));
+      expect(result.numTurns, equals(3));
+      expect(result.usage.input, equals(10));
+      expect(result.usage.output, equals(20));
+      expect(result.usage.cacheRead, equals(5));
+      expect(result.usage.cacheCreation, equals(2));
+      expect(result.usage.cost, equals(0.05));
+      expect(result.usage.thinkingTokens, equals(42));
+    });
+
+    test('defaults stop_reason/duration_ms/num_turns to null when absent', () {
+      const resultLine = '{"type":"result","result":"ok"}';
+
+      final result = parseClaudeResultLine(
+        resultLine,
+        thinkingBuffer: null,
+        thinkingTokens: 0,
+      );
+
+      expect(result.stopReason, isNull);
+      expect(result.durationMs, isNull);
+      expect(result.numTurns, isNull);
+      expect(result.thinking, isNull);
+    });
   });
 }
