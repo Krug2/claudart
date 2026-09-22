@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:test/test.dart';
 import 'package:path/path.dart' as p;
 import 'package:claudart/commands/save.dart';
+import 'package:claudart/git_utils.dart';
 import 'package:claudart/registry.dart';
 import 'package:claudart/paths.dart';
 import '../helpers/mocks.dart';
@@ -259,6 +261,39 @@ List<String> _checkpoints(MemoryFileIO io) => io.files.keys
     .toList();
 
 void main() {
+  group('save — branch display', () {
+    test('prefers live git branch over stale handoff branch', () async {
+      final realGit = detectGitContext();
+      // Only meaningful inside a real git checkout — skip otherwise.
+      if (realGit == null) return;
+
+      final entry = RegistryEntry(
+        name: 'my-app',
+        projectRoot: realGit.root,
+        workspacePath: _workspace,
+        createdAt: '2026-01-01',
+        lastSession: '2026-03-15',
+      );
+      final io = MemoryFileIO(
+        files: {handoffPathFor(_workspace): _fullHandoff},
+      );
+      Registry.empty().add(entry).save(io: io);
+
+      final output = <String>[];
+      await runZoned(
+        () => runSave(io: io, projectRootOverride: null, exitFn: _throwExit),
+        zoneSpecification: ZoneSpecification(
+          print: (_, __, ___, line) => output.add(line),
+        ),
+      );
+
+      final printed = output.join('\n');
+      // _fullHandoff stores "Branch: fix/null-ref" — the live branch must win.
+      expect(printed, contains('Branch : ${realGit.branch}'));
+      expect(printed, isNot(contains('Branch : fix/null-ref')));
+    });
+  });
+
   // ── Checkpoint writing ───────────────────────────────────────────────────
 
   group('save — checkpoint writing', () {

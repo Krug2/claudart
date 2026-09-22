@@ -50,7 +50,8 @@ Future<RotateResult>  runRotate({
   print(render.header('CLAUDART ROTATE'));
 
   // 1 — Registry lookup.
-  final projectRoot = projectRootOverride ?? detectGitContext()?.root;
+  final gitCtx = projectRootOverride != null ? null : detectGitContext();
+  final projectRoot = projectRootOverride ?? gitCtx?.root;
   if (projectRoot == null) {
     print('✗ Not inside a git repository. Cannot detect project.');
     exit_(1);
@@ -83,7 +84,7 @@ Future<RotateResult>  runRotate({
   // 2 — Show current session summary.
   print('\n───────────────────────────────────────');
   print('  Bug    : ${_truncate(state.bug)}');
-  print('  Branch : ${state.branch}');
+  print('  Branch : ${gitCtx?.branch ?? state.branch}');
   print('───────────────────────────────────────\n');
 
   // 3 — Confirm before any destructive action.

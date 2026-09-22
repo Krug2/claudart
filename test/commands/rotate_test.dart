@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:test/test.dart';
 import 'package:path/path.dart' as p;
 import 'package:claudart/commands/rotate.dart';
+import 'package:claudart/git_utils.dart';
 import 'package:claudart/handoff_template.dart';
 import 'package:claudart/paths.dart';
 import 'package:claudart/teardown_utils.dart';
@@ -206,6 +208,52 @@ bool _confirmNo(String _) => false;
 Never _noExit(int code) => throw StateError('exit($code) called');
 
 void main() {
+  group('runRotate — branch display', () {
+    test('prefers live git branch over stale handoff branch', () async {
+      final realGit = detectGitContext();
+      // Only meaningful inside a real git checkout — skip otherwise.
+      if (realGit == null) return;
+
+      final io = MemoryFileIO(files: {
+        handoffPathFor(_workspace): _handoffWithPending,
+        p.join(workspacesRoot, 'registry.json'): '''
+{
+  "_warning": "Do not edit manually",
+  "workspaces": [
+    {
+      "name": "my-app",
+      "workspacePath": "$_workspace",
+      "projectRoot": "${realGit.root}",
+      "sensitivityMode": false,
+      "createdAt": "2026-03-18",
+      "lastSession": "2026-03-18"
+    }
+  ]
+}
+''',
+      });
+
+      final output = <String>[];
+      await runZoned(
+        () => runRotate(
+          io: io,
+          projectRootOverride: null,
+          exitFn: _noExit,
+          confirmFn: _confirmNo,
+          buildFn: _buildOk,
+        ),
+        zoneSpecification: ZoneSpecification(
+          print: (_, __, ___, line) => output.add(line),
+        ),
+      );
+
+      final printed = output.join('\n');
+      // _handoffWithPending stores "Branch: fix/pr-bugs" — the live branch must win.
+      expect(printed, contains('Branch : ${realGit.branch}'));
+      expect(printed, isNot(contains('Branch : fix/pr-bugs')));
+    });
+  });
+
   group('runRotate — no handoff', () {
     test('returns noHandoff when file missing', () async {
       final io = MemoryFileIO(files: {
