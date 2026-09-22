@@ -10,3 +10,6 @@ dependencies:
   analyzer: ^8.1.1
   analyzer_plugin: ^0.13.7
   custom_lint_builder: ^0.8.1
+
+dev_dependencies:
+  lints: ^6.1.0

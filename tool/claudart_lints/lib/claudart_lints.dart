@@ -63,7 +63,7 @@ class BareStringForEnum extends DartLintRule {
   @override
   void run(
     CustomLintResolver resolver,
-    ErrorReporter reporter,
+    DiagnosticReporter reporter,
     CustomLintContext context,
   ) {
     // A pure string→enum translation factory (fromString-style) is
@@ -177,7 +177,7 @@ class EnumValuesLoopInSingleTest extends DartLintRule {
   @override
   void run(
     CustomLintResolver resolver,
-    ErrorReporter reporter,
+    DiagnosticReporter reporter,
     CustomLintContext context,
   ) {
     context.registry.addMethodInvocation((node) {
@@ -265,7 +265,7 @@ class UngroupedIdenticalSwitchCases extends DartLintRule {
   @override
   void run(
     CustomLintResolver resolver,
-    ErrorReporter reporter,
+    DiagnosticReporter reporter,
     CustomLintContext context,
   ) {
     context.registry.addSwitchExpression((node) {
