@@ -465,6 +465,44 @@ void _accumulateThinking(
   }
 }
 
+/// Result of consuming a `claude` subprocess's stdout stream: every line
+/// seen (for locating the final `"type":"result"` line) plus whatever
+/// [_accumulateThinking] extracted along the way. Split out from
+/// [defaultClaudeRunner] so the stream-parsing behavior — thinking-token
+/// accumulation, in particular — can be exercised in a test against a
+/// plain [Stream<String>] without spawning a real `claude` process.
+class ClaudeStreamResult {
+  final List<String> lines;
+  final String? thinking;
+  final int thinkingTokens;
+
+  const ClaudeStreamResult({
+    required this.lines,
+    required this.thinking,
+    required this.thinkingTokens,
+  });
+}
+
+Future<ClaudeStreamResult> consumeClaudeStream(
+  Stream<String> lines,
+  StepDebugTrace trace,
+) async {
+  final collected = <String>[];
+  final thinkingBuffer = StringBuffer();
+  var thinkingTokens = 0;
+  await for (final line in lines) {
+    if (line.trim().isEmpty) continue;
+    collected.add(line);
+    trace.writeStreamLine(line);
+    _accumulateThinking(line, thinkingBuffer, (t) => thinkingTokens = t);
+  }
+  return ClaudeStreamResult(
+    lines: collected,
+    thinking: thinkingBuffer.isEmpty ? null : thinkingBuffer.toString(),
+    thinkingTokens: thinkingTokens,
+  );
+}
+
 Future<StepResult?> defaultClaudeRunner({
   required AgentModel model,
   required String systemPrompt,
@@ -507,21 +545,17 @@ Future<StepResult?> defaultClaudeRunner({
     process.stdin.writeln(message);
     await process.stdin.close();
 
-    final lines = <String>[];
     // Extended-thinking text arrives incrementally as `thinking_delta`
     // stream events, not on the final result line — only the final
     // answer text is repeated there. Accumulated here as the stream is
     // consumed rather than re-parsed afterward.
-    final thinkingBuffer = StringBuffer();
-    var thinkingTokens = 0;
-    await for (final line in process.stdout
-        .transform(const Utf8Decoder())
-        .transform(const LineSplitter())) {
-      if (line.trim().isEmpty) continue;
-      lines.add(line);
-      trace.writeStreamLine(line);
-      _accumulateThinking(line, thinkingBuffer, (t) => thinkingTokens = t);
-    }
+    final streamResult = await consumeClaudeStream(
+      process.stdout.transform(const Utf8Decoder()).transform(const LineSplitter()),
+      trace,
+    );
+    final lines = streamResult.lines;
+    final thinkingBuffer = streamResult.thinking;
+    final thinkingTokens = streamResult.thinkingTokens;
 
     final err  = await process.stderr.transform(const Utf8Decoder()).join();
     final code = await process.exitCode;
@@ -563,7 +597,7 @@ Future<StepResult?> defaultClaudeRunner({
     return StepResult(
       text: text,
       usage: usage,
-      thinking: thinkingBuffer.isEmpty ? null : thinkingBuffer.toString(),
+      thinking: thinkingBuffer,
       stopReason: json['stop_reason'] as String?,
       durationMs: json['duration_ms'] as int?,
       numTurns: json['num_turns'] as int?,

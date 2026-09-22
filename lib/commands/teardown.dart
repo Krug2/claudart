@@ -203,7 +203,7 @@ Future<void> runTeardown({
       ? agentHotFiles
       : (_isBlank(changedFiles) ? null : changedFiles.replaceAll('\n', ', ').trim());
   final hotFiles = headless
-      ? (hotFilesDefault ?? 'unspecified')
+      ? hotFilesDefault
       : _promptWithDefault(
           prompt_,
           'Which files were confirmed key to the fix?',
@@ -248,7 +248,7 @@ Future<void> runTeardown({
     print('  Record type : ${archiveKind == ArchiveKind.archive ? 'archive (resolved)' : 'reminder'}');
     print('  Category    : $category');
     print('  Fix summary : $fixSummary');
-    print('  Hot files   : $hotFiles');
+    print('  Hot files   : ${hotFiles ?? 'unspecified'}');
     print('  Cold files  : ${coldFiles ?? '(none)'}');
     print('  Root cause  : $pattern');
     print('  Fix pattern : $fixPattern');

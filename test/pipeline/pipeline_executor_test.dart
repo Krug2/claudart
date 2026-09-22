@@ -10,6 +10,7 @@ import 'dart:async';
 
 import 'package:claudart/pipeline/agent_model.dart';
 import 'package:claudart/pipeline/agent_step.dart';
+import 'package:claudart/pipeline/debug_mode.dart' show StepDebugTrace;
 import 'package:claudart/pipeline/pipeline_context.dart';
 import 'package:claudart/pipeline/pipeline_event.dart';
 import 'package:claudart/pipeline/pipeline_executor.dart';
@@ -276,6 +277,59 @@ void main() {
           ));
 
       expect(printed, isNot(contains('postProcess fired')));
+    });
+  });
+
+  group('consumeClaudeStream — real stream-json shapes, no mocks', () {
+    test('accumulates thinking text across content_block_delta events and '
+        'reads the thinking-token count off message_delta', () async {
+      final lines = [
+        '{"type":"stream_event","event":{"type":"message_start"}}',
+        '{"type":"stream_event","event":{"type":"content_block_start"}}',
+        '{"type":"stream_event","event":{"type":"content_block_delta",'
+            '"delta":{"type":"thinking_delta","thinking":"Let me "}}}',
+        '{"type":"stream_event","event":{"type":"content_block_delta",'
+            '"delta":{"type":"thinking_delta","thinking":"check the code."}}}',
+        // A text_delta must never leak into the thinking buffer.
+        '{"type":"stream_event","event":{"type":"content_block_delta",'
+            '"delta":{"type":"text_delta","text":"Final answer."}}}',
+        '{"type":"stream_event","event":{"type":"message_delta",'
+            '"usage":{"output_tokens_details":{"thinking_tokens":42}}}}',
+        '{"type":"result","result":"Final answer.","stop_reason":"end_turn"}',
+      ];
+
+      final result = await consumeClaudeStream(
+        Stream.fromIterable(lines),
+        StepDebugTrace.disabled(),
+      );
+
+      expect(result.thinking, equals('Let me check the code.'));
+      expect(result.thinkingTokens, equals(42));
+      expect(result.lines, equals(lines));
+    });
+
+    test('malformed and irrelevant lines are ignored, not thrown', () async {
+      final lines = [
+        'not json at all',
+        '{"type":"stream_event","event":{"type":"message_stop"}}',
+        '{"type":"stream_event"}', // no "event" key content shape variance
+        '',
+        '   ',
+      ];
+
+      final result = await consumeClaudeStream(
+        Stream.fromIterable(lines),
+        StepDebugTrace.disabled(),
+      );
+
+      expect(result.thinking, isNull);
+      expect(result.thinkingTokens, equals(0));
+      // Blank lines are skipped entirely — never collected.
+      expect(result.lines, equals([
+        'not json at all',
+        '{"type":"stream_event","event":{"type":"message_stop"}}',
+        '{"type":"stream_event"}',
+      ]));
     });
   });
 }

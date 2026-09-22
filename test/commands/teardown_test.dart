@@ -1,6 +1,7 @@
 import 'package:test/test.dart';
 import 'package:path/path.dart' as p;
 import 'package:claudart/commands/teardown.dart' show runTeardown, TeardownCategory;
+import 'package:claudart/md_io.dart' show readSection;
 import 'package:claudart/paths.dart';
 import 'package:claudart/registry.dart';
 import 'package:claudart/handoff_template.dart' show blankHandoff;
@@ -654,6 +655,34 @@ void main() {
       expect(_archives(io), hasLength(1),
           reason: 'a reminder is still archived — headless never silently '
               'discards an unresolved session\'s context');
+    });
+
+    test('never records the unspecified sentinel as a real hot-path file '
+        'when no hot files are known', () async {
+      final completeHandoff = _bareHandoff.replaceFirst(
+        'suggest-investigating',
+        'debug-complete',
+      );
+      final io = _io(handoff: completeHandoff);
+
+      await runTeardown(
+        io: io,
+        projectRootOverride: _projectRoot,
+        mode: RunMode.headless,
+        confirmFn: throwOnCall('confirmFn'),
+        promptFn: (q, {optional = false}) =>
+            throw StateError('headless must never call promptFn: $q'),
+        pickFn: (items, {startIndex = 0}) =>
+            throw StateError('headless must never call pickFn'),
+        exitFn: _throwExit,
+      );
+
+      final skills = io.read(skillsPathFor(_workspace));
+      final hotPaths = readSection(skills, 'Hot Paths');
+      expect(hotPaths, isNot(contains('unspecified')),
+          reason: '"unspecified" is display-only text for the headless '
+              'summary — it must never be written into skills.md\'s Hot '
+              'Paths section as if it were a real hot-path file');
     });
   });
 }
