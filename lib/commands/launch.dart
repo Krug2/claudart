@@ -33,7 +33,9 @@ Future<void> runLauncher({
   // ── Phase 1: Registry load ─────────────────────────────────────────────────
 
   final registry = Registry.load(io: fileIO);
-  final currentRoot = projectRootOverride ?? detectGitContext()?.root;
+  final gitCtx = projectRootOverride != null ? null : detectGitContext();
+  final currentRoot = projectRootOverride ?? gitCtx?.root;
+  final currentBranch = gitCtx?.branch;
 
   if (registry.isEmpty) {
     print('\nNo projects registered yet.');
@@ -92,7 +94,10 @@ Future<void> runLauncher({
   print('\n─── ${selected.name} ${'─' * dashCount}');
 
   if (state != null) {
-    print('  Branch : ${state.branch}');
+    final isCurrentProject =
+        currentEntry != null && selected.workspacePath == currentEntry.workspacePath;
+    final branch = (isCurrentProject ? currentBranch : null) ?? state.branch;
+    print('  Branch : $branch');
     final statusColour = _statusColour(state.status);
     print('  Status : ${ansi.c(statusColour, state.status.value)}');
     if (state.hasActiveContent) {
